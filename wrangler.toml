@@ -1,3 +1,8 @@
 name = "spore-bet"
 compatibility_date = "2026-11-15"
 pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "spore-bet-db"
+database_id = "142040a9-7084-4eb3-b9f7-f423ecfe1244"
