@@ -1,0 +1,11 @@
+{
+  "name": "SPORE BET",
+  "short_name": "SPORE BET",
+  "description": "SPORE BET virtual sportsbook prototype",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#071b16",
+  "theme_color": "#071b16",
+  "icons": []
+}
