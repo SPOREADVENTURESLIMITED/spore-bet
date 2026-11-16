@@ -25,6 +25,20 @@ export async function verifyPassword(password,stored) {
   try { const [scheme,roundsText,saltHex,expectedHex]=stored.split("$");const rounds=Number(roundsText);if(scheme!=="pbkdf2-sha256"||!Number.isInteger(rounds)||rounds<10000||rounds>1000000)return false;const salt=fromHex(saltHex),expected=fromHex(expectedHex);const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);const actual=new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations:rounds},key,expected.length*8));if(actual.length!==expected.length)return false;let diff=0;for(let i=0;i<actual.length;i++)diff|=actual[i]^expected[i];return diff===0;}catch{return false;}
 }
 export async function sha256(value) { return toHex(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value))); }
+export async function consumeRateLimit(db,request,scope,subject,limit,windowSeconds) {
+  const ip=request.headers.get("CF-Connecting-IP")||"unknown";
+  const bucket=await sha256(`${scope}|${ip}|${subject}`);
+  const now=Math.floor(Date.now()/1000),cutoff=now-windowSeconds;
+  const row=await db.prepare(
+    `INSERT INTO auth_rate_limits (bucket_key,attempts,window_started_at)
+     VALUES (?,1,?)
+     ON CONFLICT(bucket_key) DO UPDATE SET
+       attempts=CASE WHEN auth_rate_limits.window_started_at <= ? THEN 1 ELSE auth_rate_limits.attempts+1 END,
+       window_started_at=CASE WHEN auth_rate_limits.window_started_at <= ? THEN excluded.window_started_at ELSE auth_rate_limits.window_started_at END
+     RETURNING attempts`
+  ).bind(bucket,now,cutoff,cutoff).first();
+  return Number(row?.attempts||0)<=limit;
+}
 async function mfaKey(env) {
   if(typeof env.MFA_ENCRYPTION_KEY!=="string"||env.MFA_ENCRYPTION_KEY.length<32) throw new Error("MFA_ENCRYPTION_KEY must be configured with at least 32 characters.");
   const raw=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(env.MFA_ENCRYPTION_KEY));
