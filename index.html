@@ -30,35 +30,89 @@ footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-s
 <header><div class="wrap top"><div><div class="brand">SPORE<span>BET</span></div><div class="tag">SPORTS • SMARTER PLAY</div></div><div class="actions"><span class="pill">VIRTUAL MODE</span><span class="pill wallet">Demo: <b id="balance">100,000</b> cr</span><button class="ghost small" id="reset">Reset demo</button></div></div></header>
 <main class="wrap">
 <section class="hero"><div class="heroMain"><div class="eyebrow">WELCOME TO SPORE BET</div><h1>Make every match<br><span style="color:var(--green)">more exciting.</span></h1><p>Explore the sportsbook prototype, choose a sport and build a virtual bet slip. Start with demo credits — no real money is used.</p><button class="primary" onclick="document.getElementById('matches').scrollIntoView({behavior:'smooth'})">Explore matches ↓</button></div><div class="heroSide"><div class="eyebrow">PLAY MODE</div><strong>Virtual credits only</strong><p>Illustrative fixtures and odds for product testing. No live markets, deposits or withdrawals.</p><span class="pill" style="width:max-content">Real-money mode: locked</span></div></section>
-<section class="account"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h2>Customer account</h2><div class="accountStatus" id="accountStatus">Sign in or create an account to access your saved demo wallet.</div></div><button class="ghost small" id="signOut" hidden>Sign out</button></div><div id="authForms"><div class="authgrid" style="margin-top:12px"><input id="authName" placeholder="Display name (registration)" autocomplete="name"><input id="authIdentifier" placeholder="Email or +international phone" autocomplete="username"><input id="authPassword" type="password" placeholder="Password (12+ characters)" autocomplete="current-password"><button class="primary" id="registerBtn">Create account</button><button class="ghost" id="loginBtn">Sign in</button></div><div class="accountStatus">Accounts receive demo credits only. Keep your password private.</div></div></section>
+<section class="account"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h2>Customer account</h2><div class="accountStatus" id="accountStatus">Sign in or create an account to access your saved demo wallet.</div></div><button class="ghost small" id="signOut" hidden>Sign out</button></div><div id="authForms"><div class="authgrid" style="margin-top:12px"><input id="authName" placeholder="Display name (registration)" autocomplete="name"><input id="authIdentifier" placeholder="Email or +international phone" autocomplete="username"><input id="authPassword" type="password" placeholder="Password (12+ characters)" autocomplete="current-password"><input id="authOtp" inputmode="numeric" placeholder="Authenticator code (admins)" aria-label="Administrator authenticator code"><button class="primary" id="registerBtn">Create account</button><button class="ghost" id="loginBtn">Sign in</button></div><div class="accountStatus">Accounts receive demo credits only. Keep your password private.</div></div></section>
 <div class="notice">DEMO ENVIRONMENT — All teams, fixtures and odds below are illustrative. Demo credits have no cash value and cannot be withdrawn.</div>
 <div class="layout"><section id="matches"><div class="sectionHead"><h2>Sportsbook</h2><span class="pill">Sample markets</span></div><div class="sports" id="sports"><button class="sport active" data-sport="Football">⚽ Football</button><button class="sport" data-sport="Basketball">🏀 Basketball</button><button class="sport" data-sport="Tennis">🎾 Tennis</button><button class="sport" data-sport="Rugby">🏉 Rugby</button></div><div id="fixtureList"></div></section>
-<aside class="panel slip"><h2>Bet slip <span class="pill" id="pickCount">0</span></h2><div id="picks" class="empty">Select an illustrative odd to add it here.</div><label for="stake">Stake (demo credits)</label><input id="stake" class="field" type="number" min="1" step="1" value="1000"><div class="calc"><span>Combined odds</span><strong id="combined">—</strong></div><div class="calc"><span>Potential return</span><strong id="returns">—</strong></div><button class="primary full" id="place">Place demo bet</button><button class="ghost full" id="clear">Clear slip</button><p id="message" style="color:var(--muted);font-size:11px">Demo only. Bet placement is simulated in this browser.</p></aside></div>
+<aside class="panel slip"><h2>Bet slip <span class="pill" id="pickCount">0</span></h2><div id="picks" class="empty">Select an illustrative odd to add it here.</div><label for="stake">Stake (demo credits)</label><input id="stake" class="field" type="number" min="1" step="1" value="1000"><div class="calc"><span>Combined odds</span><strong id="combined">—</strong></div><div class="calc"><span>Potential return</span><strong id="returns">—</strong></div><button class="primary full" id="place">Place demo bet</button><button class="ghost full" id="clear">Clear slip</button><p id="message" style="color:var(--muted);font-size:11px">Persistent demo betting. No real money is used.</p></aside></div>
 </main><footer><div class="wrap">© <span id="year"></span> SPORE BET. Virtual demo prototype. Play responsibly. 18+ concept only; any regulated launch requires local approvals.</div></footer><div class="credit">Design &amp; development: SPORE</div>
 <script>
 const data={
- Football:[["Kampala City","Nairobi United","Today • Sample match",1.82,3.25,4.1],["Dar Stars","Kigali Athletic","Tomorrow • Sample match",2.05,3.1,3.45],["Coastal FC","Highland Rovers","Tomorrow • Sample match",1.95,3.4,3.7]],
- Basketball:[["Kampala Hoops","Nairobi Flyers","Today • Sample game",1.74,1.95],["Dar City","Kigali Towers","Tomorrow • Sample game",2.1,1.68]],
- Tennis:[["Player A","Player B","Today • Sample match",1.88,1.92],["Player C","Player D","Tomorrow • Sample match",1.65,2.2]],
- Rugby:[["East Lions","Lake Warriors","Today • Sample match",1.9,1.9],["Savannah XV","Mountain RFC","Tomorrow • Sample match",2.15,1.72]]
+ Football:[{eventId:"demo-football-event",home:"Kampala City",away:"Nairobi United",label:"SPORE demo market",odds:[1.82,3.25,4.10],names:["Home","Draw","Away"],ids:["demo-football-home","demo-football-draw","demo-football-away"]}],
+ Basketball:[{eventId:"demo-basketball-event",home:"Kampala Hoops",away:"Nairobi Flyers",label:"SPORE demo market",odds:[1.74,1.95],names:["Team A","Team B"],ids:["demo-basketball-home","demo-basketball-away"]}],
+ Tennis:[{eventId:"demo-tennis-event",home:"Player A",away:"Player B",label:"SPORE demo market",odds:[1.88,1.92],names:["Team A","Team B"],ids:["demo-tennis-home","demo-tennis-away"]}],
+ Rugby:[{eventId:"demo-rugby-event",home:"East Lions",away:"Lake Warriors",label:"SPORE demo market",odds:[1.90,1.90],names:["Team A","Team B"],ids:["demo-rugby-home","demo-rugby-away"]}]
 };
-let sport="Football", picks=[], balance=100000;
+let sport="Football",picks=[],balance=0,signedIn=false;
 const fmt=n=>Math.round(n).toLocaleString();
-function render(){document.getElementById("fixtureList").innerHTML=data[sport].map((m,i)=>{let labels=sport==="Football"?["Home","Draw","Away"]:["Team A","Team B"];let odds=m.slice(3);return '<article class="match"><div class="matchTop"><span>'+sport.toUpperCase()+'</span><span>'+m[2]+'</span></div><div class="teams"><span>'+m[0]+'</span><span class="versus">VS</span><span>'+m[1]+'</span></div><div class="markets">'+odds.map((o,j)=>{let key=sport+"-"+i+"-"+j;let selected=picks.some(p=>p.key===key);return '<button class="odd '+(selected?'selected':'')+'" data-key="'+key+'" data-match="'+i+'" data-index="'+j+'"><span>'+ (labels[j]||"Selection")+'</span><b>'+o.toFixed(2)+'</b></button>'}).join("")+'</div></article>'}).join("");document.querySelectorAll(".odd").forEach(b=>b.addEventListener("click",()=>addPick(b)))}
-function addPick(b){let i=+b.dataset.match,j=+b.dataset.index,m=data[sport][i],key=b.dataset.key;if(picks.some(p=>p.key===key)){picks=picks.filter(p=>p.key!==key)}else{picks=picks.filter(p=>!p.key.startsWith(sport+"-"+i+"-"));picks.push({key,match:m[0]+" vs "+m[1],selection:(sport==="Football"?["Home","Draw","Away"]:["Team A","Team B"])[j],odd:m[j+3]})}render();renderSlip()}
-function renderSlip(){let el=document.getElementById("picks");document.getElementById("pickCount").textContent=picks.length;if(!picks.length){el.className="empty";el.textContent="Select an illustrative odd to add it here."}else{el.className="";el.innerHTML=picks.map((p,i)=>'<div class="pick"><b>'+p.match+'</b><small>'+p.selection+' • '+p.odd.toFixed(2)+'</small><button class="ghost small" data-remove="'+i+'">Remove</button></div>').join("");el.querySelectorAll("[data-remove]").forEach(b=>b.onclick=()=>{picks.splice(+b.dataset.remove,1);render();renderSlip()})}let c=picks.reduce((a,p)=>a*p.odd,1),s=+document.getElementById("stake").value;document.getElementById("combined").textContent=picks.length?c.toFixed(2):"—";document.getElementById("returns").textContent=picks.length&&s>0?fmt(c*s)+" cr":"—";document.getElementById("balance").textContent=fmt(balance)}
-document.getElementById("sports").addEventListener("click",e=>{let b=e.target.closest("[data-sport]");if(!b)return;sport=b.dataset.sport;document.querySelectorAll(".sport").forEach(x=>x.classList.toggle("active",x===b));render()});
+function render(){
+ const matches=data[sport];
+ document.getElementById("fixtureList").innerHTML=matches.map((m,i)=>'<article class="match"><div class="matchTop"><span>'+sport.toUpperCase()+'</span><span>'+m.label+'</span></div><div class="teams"><span>'+m.home+'</span><span class="versus">VS</span><span>'+m.away+'</span></div><div class="markets">'+m.odds.map((odd,j)=>{const id=m.ids[j],selected=picks.some(p=>p.selectionId===id);return '<button class="odd '+(selected?'selected':'')+'" data-selection="'+id+'" data-match="'+i+'" data-index="'+j+'"><span>'+m.names[j]+'</span><b>'+odd.toFixed(2)+'</b></button>'}).join("")+'</div></article>').join("");
+ document.querySelectorAll(".odd").forEach(b=>b.addEventListener("click",()=>addPick(b)));
+}
+function addPick(button){
+ const m=data[sport][Number(button.dataset.match)],j=Number(button.dataset.index),id=button.dataset.selection;
+ if(picks.some(p=>p.selectionId===id))picks=picks.filter(p=>p.selectionId!==id);
+ else {picks=picks.filter(p=>p.eventId!==m.eventId);picks.push({eventId:m.eventId,selectionId:id,match:m.home+" vs "+m.away,selection:m.names[j],odd:m.odds[j]});}
+ render();renderSlip();
+}
+function renderSlip(){
+ const el=document.getElementById("picks");
+ document.getElementById("pickCount").textContent=picks.length;
+ if(!picks.length){el.className="empty";el.textContent="Select an illustrative odd to add it here.";}
+ else {el.className="";el.innerHTML=picks.map((p,i)=>'<div class="pick"><b>'+p.match+'</b><small>'+p.selection+' • '+p.odd.toFixed(2)+'</small><button class="ghost small" data-remove="'+i+'">Remove</button></div>').join("");el.querySelectorAll("[data-remove]").forEach(b=>b.onclick=()=>{picks.splice(Number(b.dataset.remove),1);render();renderSlip();});}
+ const combined=picks.reduce((v,p)=>v*p.odd,1),stake=Number(document.getElementById("stake").value);
+ document.getElementById("combined").textContent=picks.length?combined.toFixed(2):"—";
+ document.getElementById("returns").textContent=picks.length&&stake>0?fmt(combined*stake)+" cr":"—";
+ document.getElementById("balance").textContent=fmt(balance);
+}
+document.getElementById("sports").addEventListener("click",e=>{const b=e.target.closest("[data-sport]");if(!b)return;sport=b.dataset.sport;document.querySelectorAll(".sport").forEach(x=>x.classList.toggle("active",x===b));picks=[];render();renderSlip();});
 document.getElementById("stake").addEventListener("input",renderSlip);
-document.getElementById("clear").onclick=()=>{picks=[];render();renderSlip();document.getElementById("message").textContent="Slip cleared."};
-document.getElementById("reset").onclick=()=>{balance=100000;picks=[];render();renderSlip();document.getElementById("message").textContent="Demo wallet reset."};
-document.getElementById("place").onclick=()=>{let s=+document.getElementById("stake").value;if(!picks.length){document.getElementById("message").textContent="Add at least one selection first.";return}if(!Number.isInteger(s)||s<1){document.getElementById("message").textContent="Enter a valid whole-number stake.";return}if(s>balance){document.getElementById("message").textContent="Insufficient demo credits.";return}balance-=s;document.getElementById("message").textContent="Demo bet recorded locally. No real wager or payment was made.";picks=[];render();renderSlip()};
-document.getElementById("year").textContent=new Date().getFullYear();render();renderSlip();
+document.getElementById("clear").onclick=()=>{picks=[];render();renderSlip();document.getElementById("message").textContent="Slip cleared.";};
+document.getElementById("reset").onclick=()=>{document.getElementById("message").textContent="Wallets are server-managed. A browser reset cannot change your saved balance.";};
+document.getElementById("place").onclick=async()=>{
+ const stake=Number(document.getElementById("stake").value),message=document.getElementById("message");
+ if(!signedIn){message.textContent="Sign in before placing a demo bet.";return;}
+ if(!picks.length){message.textContent="Add at least one selection first.";return;}
+ if(!Number.isSafeInteger(stake)||stake<1){message.textContent="Enter a valid whole-number stake.";return;}
+ message.textContent="Submitting bet securely…";
+ try{
+  const response=await fetch("/api/bets",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({stake,selectionIds:picks.map(p=>p.selectionId),idempotencyKey:crypto.randomUUID()})});
+  const result=await response.json();if(!response.ok)throw new Error(result.error||"Bet could not be placed.");
+  message.textContent="Demo bet saved to your account. Potential return: "+fmt(result.bet.potentialReturn)+" credits.";
+  picks=[];await refreshAccount();render();renderSlip();
+ }catch(error){message.textContent=error.message;}
+};
+document.getElementById("year").textContent=new Date().getFullYear();
 const accountStatus=document.getElementById("accountStatus"),authForms=document.getElementById("authForms"),signOut=document.getElementById("signOut");
-async function refreshAccount(){try{const r=await fetch("/api/auth/me",{credentials:"same-origin",cache:"no-store"});const d=await r.json();if(!r.ok)throw new Error(d.error);accountStatus.textContent="Signed in as "+d.user.displayName+" · "+d.user.role+" · Wallet: "+fmt(d.wallet.balance)+" "+d.wallet.currency+" demo credits";signOut.hidden=false;authForms.hidden=true;balance=d.wallet.balance;renderSlip()}catch{accountStatus.textContent="Not signed in. Create an account or sign in to access your persistent demo wallet.";signOut.hidden=true;authForms.hidden=false}}
-async function submitAuth(path,payload){accountStatus.textContent="Please wait…";try{const r=await fetch(path,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");accountStatus.textContent=d.message||"Account ready.";await refreshAccount()}catch(e){accountStatus.textContent=e.message}}
-document.getElementById("registerBtn").onclick=()=>{const name=document.getElementById("authName").value.trim(),id=document.getElementById("authIdentifier").value.trim(),pw=document.getElementById("authPassword").value;const isEmail=id.includes("@");submitAuth("/api/auth/register",{displayName:name,email:isEmail?id:"",phone:isEmail?"":id,password:pw})};
-document.getElementById("loginBtn").onclick=()=>submitAuth("/api/auth/login",{identifier:document.getElementById("authIdentifier").value.trim(),password:document.getElementById("authPassword").value});
-signOut.onclick=async()=>{await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"});accountStatus.textContent="Signed out.";await refreshAccount()};
-refreshAccount();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+async function refreshAccount(){
+ try{
+  const response=await fetch("/api/auth/me",{credentials:"same-origin",cache:"no-store"}),d=await response.json();
+  if(!response.ok)throw new Error(d.error);
+  signedIn=true;balance=d.wallet.balance;accountStatus.textContent="Signed in as "+d.user.displayName+" · "+d.user.role+" · Saved wallet: "+fmt(balance)+" "+d.wallet.currency+" demo credits";
+  signOut.hidden=false;authForms.hidden=true;renderSlip();
+ }catch{signedIn=false;accountStatus.textContent="Not signed in. Create an account or sign in to access your saved demo wallet.";signOut.hidden=true;authForms.hidden=false;}
+}
+async function submitAuth(path,payload){
+ accountStatus.textContent="Please wait…";
+ try{
+  const response=await fetch(path,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),d=await response.json();
+  if(!response.ok)throw new Error(d.error||"Request failed");
+  accountStatus.textContent=d.message||"Account ready.";
+  if(d.mfaSetupRequired)accountStatus.textContent+=" Open the administrator dashboard to enroll an authenticator.";
+  await refreshAccount();
+  if(d.user&&d.user.role==="admin")window.location.href="/admin.html";
+ }catch(error){accountStatus.textContent=error.message;}
+}
+document.getElementById("registerBtn").onclick=()=>{
+ const name=document.getElementById("authName").value.trim(),identifier=document.getElementById("authIdentifier").value.trim(),password=document.getElementById("authPassword").value,isEmail=identifier.includes("@");
+ submitAuth("/api/auth/register",{displayName:name,email:isEmail?identifier:"",phone:isEmail?"":identifier,password});
+};
+document.getElementById("loginBtn").onclick=()=>submitAuth("/api/auth/login",{identifier:document.getElementById("authIdentifier").value.trim(),password:document.getElementById("authPassword").value,otp:document.getElementById("authOtp").value.trim()});
+signOut.onclick=async()=>{await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"});signedIn=false;await refreshAccount();};
+document.getElementById("authOtp").setAttribute("autocomplete","one-time-code");
+document.getElementById("authOtp").setAttribute("inputmode","numeric");
+document.getElementById("authOtp").setAttribute("maxlength","6");
+document.getElementById("message").textContent="Persistent demo betting. Your stake is deducted and recorded on the server; no cash value.";
+render();renderSlip();refreshAccount();
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(error=>console.error("Service worker registration failed",error)));
 </script></body></html>
