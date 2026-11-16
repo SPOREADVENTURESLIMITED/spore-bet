@@ -1,4 +1,4 @@
-import { createSession, json, sessionCookie, verifyPassword, decryptTotpSecret, verifyTotp, sha256 } from "../_auth.js";
+import { createSession, json, sessionCookie, verifyPassword, decryptTotpSecret, verifyTotp, sha256, consumeRateLimit } from "../_auth.js";
 
 export async function onRequestPost({ request, env }) {
   if (!env.DB) return json({ error: "Database is not configured." }, 503);
@@ -7,6 +7,11 @@ export async function onRequestPost({ request, env }) {
   const identifier=typeof body.identifier==="string"?body.identifier.trim().toLowerCase():"";
   const password=typeof body.password==="string"?body.password:"";
   if(!identifier||identifier.length>254||!password||password.length>128)return json({error:"Invalid email/phone or password."},400);
+  try {
+    const allowedByIdentity=await consumeRateLimit(env.DB,request,"login-identity",identifier,8,900);
+    const allowedByIp=await consumeRateLimit(env.DB,request,"login-ip","all",30,900);
+    if(!allowedByIdentity||!allowedByIp)return json({error:"Too many sign-in attempts. Wait 15 minutes and try again."},429);
+  } catch { return json({error:"Login is temporarily unavailable."},503); }
   try {
     const user=await env.DB.prepare(
       `SELECT id,email,phone,display_name AS displayName,password_hash,role,status,totp_enabled AS totpEnabled,totp_secret_encrypted AS totpSecret
