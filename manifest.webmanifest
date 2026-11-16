@@ -1,11 +1,21 @@
 {
+  "id": "/",
   "name": "SPORE BET",
   "short_name": "SPORE BET",
   "description": "SPORE BET virtual sportsbook prototype",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#071b16",
   "theme_color": "#071b16",
-  "icons": []
+  "categories": ["sports", "entertainment"],
+  "icons": [
+    {
+      "src": "/icons/spore.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
