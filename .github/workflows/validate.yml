@@ -1,0 +1,30 @@
+name: Validate SPORE BET
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check Pages Functions JavaScript syntax
+        run: |
+          find functions -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check sw.js
+      - name: Validate web app manifest JSON
+        run: python -m json.tool manifest.webmanifest >/dev/null
+      - name: Verify PWA wiring and content-type rules
+        run: |
+          grep -q 'rel="manifest"' index.html
+          grep -q 'navigator.serviceWorker.register("/sw.js")' index.html
+          grep -q 'Content-Type: application/manifest+json' _headers
+          grep -q 'Content-Type: application/javascript' _headers
