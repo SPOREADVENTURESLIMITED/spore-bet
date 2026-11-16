@@ -56,7 +56,7 @@ export async function onRequestPost({ request, env }) {
 
     const betId = crypto.randomUUID();
     const walletId = user.walletId;
-    const expectedOdds = rows.map(row => "(id = ? AND odds_decimal = ?)").join(" OR ");
+    const expectedOdds = rows.map(row => "(s.id = ? AND s.odds_decimal = ?)").join(" OR ");
     const updateBindings = [stake, walletId, user.id, stake, ...rows.flatMap(row => [row.id, row.odds])];
     const statements = [
       env.DB.prepare(
