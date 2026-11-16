@@ -4,17 +4,18 @@
 :root{color-scheme:dark;--bg:#071b16;--panel:#102820;--line:#25483b;--green:#a6ef45;--muted:#9cb5aa;--white:#f3f8f4}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--white);font:15px system-ui;padding:24px}.wrap{max-width:1000px;margin:auto}a{color:var(--green)}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{margin:0}.sub{color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:26px 0}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}.metric{font-size:30px;font-weight:800;color:var(--green)}button{border:1px solid var(--line);border-radius:9px;padding:10px 14px;background:#18382b;color:white;cursor:pointer}.notice{padding:12px;border:1px solid #6c5724;background:#3a2d12;color:#f8df9b;border-radius:10px;margin-top:18px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:11px;border-bottom:1px solid var(--line)}.table{overflow:auto}.error{color:#ffb0a8}input{display:block;width:100%;max-width:420px;padding:12px;margin:10px 0;background:#081c16;border:1px solid var(--line);border-radius:8px;color:white}code{display:block;overflow-wrap:anywhere;background:#081c16;padding:12px;border-radius:8px;margin:12px 0;color:var(--green)}
 </style></head><body><main class="wrap"><header><div><h1>SPORE BET · Admin</h1><div class="sub">Restricted administrator dashboard · MFA protected</div></div><a href="/">← Back to sportsbook</a></header>
 <div class="notice">Demo environment only. Real-money wagering, deposits, withdrawals and payouts are disabled.</div>
+<section id="loginCard" class="card" hidden><h2>Administrator sign in</h2><p class="sub">Use your authorized administrator email or international phone number and password. If MFA is enabled, enter the current six-digit authenticator code.</p><input id="adminIdentifier" autocomplete="username" placeholder="Administrator email or +international phone"><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Password"><input id="adminOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Authenticator code (if enabled)"><button id="adminLogin">Sign in securely</button><p id="loginStatus" class="sub"></p></section>
 <section id="mfa" class="card" hidden><h2>Administrator authenticator setup</h2><p class="sub">Install an authenticator app, add this account using the secret below, then enter the current six-digit code. Keep the secret private.</p><button id="beginMfa">Generate setup secret</button><div id="secretWrap" hidden><p>Manual setup secret</p><code id="secret"></code><p class="sub">Authenticator URI (use the manual secret if QR scanning is unavailable).</p><code id="uri"></code><input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Six-digit authenticator code"><button id="verifyMfa">Verify and enable MFA</button></div><p id="mfaStatus" class="sub"></p></section>
 <section id="dashboard" hidden><section class="grid"><article class="card"><div class="sub">Registered users</div><div class="metric" id="users">—</div></article><article class="card"><div class="sub">Active users</div><div class="metric" id="active">—</div></article><article class="card"><div class="sub">Recorded bets</div><div class="metric" id="bets">—</div></article><article class="card"><div class="sub">Demo credits outstanding</div><div class="metric" id="credits">—</div></article></section>
 <section class="card"><h2>Recent audit activity</h2><div class="table"><table><thead><tr><th>Time</th><th>Action</th><th>Entity</th><th>Reference</th></tr></thead><tbody id="activity"><tr><td colspan="4">Loading…</td></tr></tbody></table></div><p class="sub" id="status">Administrator session verified.</p></section></section>
 <p id="pageStatus" class="sub">Checking administrator session…</p></main>
 <script>
-const mfa=document.getElementById("mfa"),dashboard=document.getElementById("dashboard"),pageStatus=document.getElementById("pageStatus");
+const mfa=document.getElementById("mfa"),dashboard=document.getElementById("dashboard"),pageStatus=document.getElementById("pageStatus"),loginCard=document.getElementById("loginCard");
 async function loadDashboard(){
  try{
   const r=await fetch("/api/admin/overview",{credentials:"same-origin",cache:"no-store"}),d=await r.json();
-  if(!r.ok){if(d.code==="MFA_SETUP_REQUIRED"){mfa.hidden=false;pageStatus.textContent="MFA enrollment is required before administrator access.";return;}throw new Error(d.error||"Access denied");}
-  mfa.hidden=true;dashboard.hidden=false;pageStatus.textContent="";
+  if(!r.ok){if(d.code==="MFA_SETUP_REQUIRED"){loginCard.hidden=true;mfa.hidden=false;pageStatus.textContent="MFA enrollment is required before administrator access.";return;}if(r.status===401||d.code==="MFA_REQUIRED"){loginCard.hidden=false;mfa.hidden=true;pageStatus.textContent="";return;}throw new Error(d.error||"Access denied");}
+  loginCard.hidden=true;mfa.hidden=true;dashboard.hidden=false;pageStatus.textContent="";
   document.getElementById("users").textContent=d.summary.registeredUsers.toLocaleString();document.getElementById("active").textContent=d.summary.activeUsers.toLocaleString();document.getElementById("bets").textContent=d.summary.recordedBets.toLocaleString();document.getElementById("credits").textContent=d.summary.demoCreditsOutstanding.toLocaleString();
   const body=document.getElementById("activity");body.textContent="";
   if(!d.recentActivity.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=4;td.textContent="No activity recorded yet.";tr.appendChild(td);body.appendChild(tr);}
@@ -30,6 +31,17 @@ document.getElementById("verifyMfa").onclick=async()=>{
  const status=document.getElementById("mfaStatus"),otp=document.getElementById("otp").value.trim();status.textContent="Verifying…";
  try{const r=await fetch("/api/admin/mfa/verify",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({otp})}),d=await r.json();if(!r.ok)throw new Error(d.error);status.textContent=d.message;await loadDashboard();}
  catch(e){status.textContent=e.message;}
+};
+document.getElementById("adminLogin").onclick=async()=>{
+ const status=document.getElementById("loginStatus"),identifier=document.getElementById("adminIdentifier").value.trim(),password=document.getElementById("adminPassword").value,otp=document.getElementById("adminOtp").value.trim();
+ status.textContent="Signing in securely…";
+ try{
+  const r=await fetch("/api/auth/login",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({identifier,password,otp})}),d=await r.json();
+  if(!r.ok)throw new Error(d.error||"Sign-in failed.");
+  if(d.user?.role!=="admin"){await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"});throw new Error("This account is not authorized for administrator access.");}
+  status.textContent=d.message||"Signed in.";
+  await loadDashboard();
+ }catch(e){status.textContent=e.message;}
 };
 loadDashboard();
 </script></body></html>
