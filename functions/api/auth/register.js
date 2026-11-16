@@ -1,4 +1,4 @@
-import { createSession, hashPassword, json, sessionCookie } from "../_auth.js";
+import { createSession, hashPassword, json, sessionCookie, consumeRateLimit } from "../_auth.js";
 
 export async function onRequestPost({ request, env }) {
   if (!env.DB) return json({ error: "Database is not configured." }, 503);
@@ -22,6 +22,10 @@ export async function onRequestPost({ request, env }) {
   if (displayName.length < 2 || displayName.length > 80) return json({ error: "Name must be 2–80 characters." }, 400);
   if (password.length < 12 || password.length > 128) return json({ error: "Password must be 12–128 characters." }, 400);
   if (countryCode && !/^[A-Z]{2}$/.test(countryCode)) return json({ error: "Country code must be two letters." }, 400);
+  try {
+    const allowed=await consumeRateLimit(env.DB,request,"register-ip","all",5,3600);
+    if(!allowed)return json({error:"Too many registration attempts. Try again in an hour."},429);
+  } catch { return json({error:"Registration is temporarily unavailable."},503); }
 
   const userId = crypto.randomUUID();
   const walletId = crypto.randomUUID();
