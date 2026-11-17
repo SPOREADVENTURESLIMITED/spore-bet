@@ -8,7 +8,7 @@
 
 The application remains **demo-only**. No real-money wagering, deposits, withdrawals, payouts, or payment-provider integrations are enabled. No destructive production test was performed.
 
-The review identified two session-lifecycle gaps: there was no inactivity timeout and no single action to revoke all administrator sessions. Fixes are proposed in PR #5. A first mobile browser run also exposed horizontal overflow; a responsive CSS fix and repeat tests are in PR #6. They add a 30-minute idle timeout, retain the seven-day absolute expiry, and provide an MFA-protected organization-wide administrator-session revocation action. The invoking session is also revoked and customer sessions are unaffected.
+The review identified two session-lifecycle gaps: there was no inactivity timeout and no single action to revoke all administrator sessions. Fixes are proposed in PR #5. A first mobile browser run exposed horizontal overflow; the responsive CSS fix was merged from PR #6 and the repeat browser matrix passed. They add a 30-minute idle timeout, retain the seven-day absolute expiry, and provide an MFA-protected organization-wide administrator-session revocation action. The invoking session is also revoked and customer sessions are unaffected.
 
 ## Scope reviewed
 
@@ -27,7 +27,7 @@ The review identified two session-lifecycle gaps: there was no inactivity timeou
 | Session security | Improvement prepared | PR #5 adds 30-minute idle expiry and all-admin revocation; migration 0007 initializes activity timestamps. Not active in production until PR merge and deployment. |
 | API safeguards | Source reviewed; automated regression added | Existing middleware rejects cross-origin state-changing requests and applies security headers. New browser test checks headers and a cross-site logout attempt. |
 | SQL handling | Source reviewed | Parameterized D1 statements are used in the reviewed authentication and betting paths. |
-| Browser regression | Playwright matrix added; mobile issue found and fix proposed | Chromium, Firefox, WebKit, Pixel 7 and iPhone 13 configurations. The first run found horizontal overflow on Pixel 7 and iPhone 13; CSS remediation is in PR #6 and must pass a fresh run before release. |
+| Browser regression | Passed | Playwright passed on Chromium, Firefox, WebKit, Pixel 7 emulation and iPhone 13 emulation, including mobile overflow, admin access denial, demo-only preview and security-header/CSRF checks. |
 | Database quick integrity | Passed | D1 PRAGMA quick_check returned ok; PRAGMA foreign_key_check returned no rows. |
 | Full SQLite integrity | Passed on exported restore | GitHub Actions exported production D1, restored the SQL dump into a clean local SQLite database, ran PRAGMA integrity_check = ok and foreign_key_check with no violations. The temporary export and restored database were deleted from the ephemeral runner. |
 | D1 export | Export operation completed | Cloudflare export endpoint reported status=complete; signed SQL artifact was not retrievable from the isolated execution environment. |
