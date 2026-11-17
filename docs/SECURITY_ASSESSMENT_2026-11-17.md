@@ -32,7 +32,7 @@ The review identified two session-lifecycle gaps: there was no inactivity timeou
 | Full SQLite integrity | Passed on exported restore | GitHub Actions exported production D1, restored the SQL dump into a clean local SQLite database, ran PRAGMA integrity_check = ok and foreign_key_check with no violations. The temporary export and restored database were deleted from the ephemeral runner. |
 | D1 export | Export operation completed | Cloudflare export endpoint reported status=complete; signed SQL artifact was not retrievable from the isolated execution environment. |
 | Point-in-time recovery | Availability confirmed | Database reports version=production; current and prior Time Travel bookmarks were retrievable. No restore was run because Time Travel restore overwrites the target database in place and D1 does not currently provide a safe clone/fork for this test. |
-| Restore rehearsal / RPO / RTO | SQL restore rehearsal passed; D1-to-D1 restore and RPO/RTO remain open | The SQL export restored cleanly into isolated SQLite and wallet/ledger plus demo-only invariants passed. A separate D1-to-D1 restore was not run because D1 Time Travel restore overwrites its target and no safe clone/fork was available. RPO/RTO for a full service recovery remain unmeasured. |
+| Restore rehearsal / RPO / RTO | SQLite and temporary D1 restore passed; full-service RPO/RTO remain open | The SQL export restored into isolated SQLite and a temporary D1 database. Full SQLite integrity_check returned ok; D1 quick_check and foreign_key_check passed; demo-only flags and wallet/ledger reconciliation passed; the temporary D1 and export files were deleted. RPO/RTO for restoring the whole service, DNS and application deployment remain unmeasured. |
 | Independent penetration test | Not completed | Requires an independent security tester with an agreed scope and report. This review must not be represented as third-party certification. |
 
 ## Findings and remediation
@@ -49,11 +49,11 @@ The review identified two session-lifecycle gaps: there was no inactivity timeou
 **Fix:** Add an MFA-protected endpoint and dashboard control to revoke every active administrator session, including the caller, with an audit event. Customer sessions are not changed.  
 **Verification:** Confirm non-admin and non-MFA callers are rejected; all admin sessions are revoked atomically; customer sessions remain active; audit event is written.
 
-### SEC-03 — D1-to-D1 restore and full service recovery evidence missing
-**Status:** Partially remediated / open for full D1 recovery.  
-**Impact:** The SQL export and SQLite restoration path is verified, but a full D1 service restoration and measured recovery objective are not.  
-**Evidence:** The automated backup verification workflow successfully exported production D1, restored the SQL dump into isolated SQLite, passed PRAGMA integrity_check, passed foreign_key_check, confirmed demo-only mode, and reconciled wallet balances to the ledger.  
-**Remaining fix:** Arrange an isolated D1 restore target when cloning/forking is available or provision a dedicated staging D1 database, then measure RPO/RTO. Never run a test restore against the live production database.
+### SEC-03 — Full service recovery objectives not yet measured
+**Status:** Data restore verification passed; RPO/RTO measurement remains open.  
+**Impact:** The database export and restore path is proven, but end-to-end recovery time for the full application, DNS, secrets, and deployment has not been measured.  
+**Evidence:** The automated workflow exported production D1, restored it into isolated SQLite and a temporary D1 database, passed full SQLite integrity_check, D1 quick_check and foreign_key_check, confirmed demo-only settings, reconciled wallet balances to the ledger, and deleted temporary data.  
+**Remaining fix:** Conduct a controlled full-service recovery exercise in a separate environment and record RPO/RTO. Never restore over the live production database.
 
 ### SEC-04 — Independent penetration test outstanding
 **Status:** Open / requires independent assessor.  
