@@ -28,7 +28,7 @@ jobs:
           sudo apt-get install -y sqlite3
           npm install --global wrangler@4
 
-      - name: Export production D1 and restore into isolated local SQLite
+      - name: Export production D1, restore into isolated SQLite and temporary D1
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -37,12 +37,25 @@ jobs:
           set -euo pipefail
           set +x
           BACKUP_SQL="$RUNNER_TEMP/spore-bet-export.sql"
+          D1_IMPORT_SQL="$RUNNER_TEMP/spore-bet-d1-import.sql"
           RESTORE_DB="$RUNNER_TEMP/spore-bet-restore-test.sqlite"
-          trap 'rm -f "$BACKUP_SQL" "$RESTORE_DB"' EXIT
+          WRANGLER_CONFIG="$RUNNER_TEMP/wrangler.restore.toml"
+          TEMP_DB_NAME="spore-bet-restore-check-${GITHUB_RUN_ID}"
+          TEMP_DB_ID=""
+          cleanup() {
+            if [ -n "$TEMP_DB_ID" ]; then
+              curl --silent --show-error --fail -X DELETE "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$TEMP_DB_ID" \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" >/dev/null || true
+            fi
+            rm -f "$BACKUP_SQL" "$D1_IMPORT_SQL" "$RESTORE_DB" "$WRANGLER_CONFIG"
+          }
+          trap cleanup EXIT
 
           wrangler d1 export spore-bet-db --remote --output="$BACKUP_SQL" --compatibility=sqlite3_cli_only
+          wrangler d1 export spore-bet-db --remote --output="$D1_IMPORT_SQL"
 
           test -s "$BACKUP_SQL"
+          test -s "$D1_IMPORT_SQL"
           sqlite3 "$RESTORE_DB" < "$BACKUP_SQL"
 
           integrity="$(sqlite3 "$RESTORE_DB" "PRAGMA integrity_check;")"
@@ -70,8 +83,48 @@ jobs:
             exit 1
           fi
 
-          echo "PASS: production D1 export restored into isolated SQLite."
+          create_result="$(curl --silent --show-error --fail -X POST "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -cn --arg name "$TEMP_DB_NAME" '{name:$name,primary_location_hint:"weur"}')")"
+          TEMP_DB_ID="$(printf '%s' "$create_result" | jq -er '.result.uuid')"
+
+          cat > "$WRANGLER_CONFIG" <<EOF
+          name = "spore-bet-restore-check"
+          compatibility_date = "2026-11-17"
+          [[d1_databases]]
+          binding = "DB"
+          database_name = "$TEMP_DB_NAME"
+          database_id = "$TEMP_DB_ID"
+          EOF
+
+          wrangler d1 execute "$TEMP_DB_NAME" --remote --file="$D1_IMPORT_SQL" --config="$WRANGLER_CONFIG"
+
+          d1_query() {
+            curl --silent --show-error --fail -X POST "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$TEMP_DB_ID/query" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -cn --arg sql "$1" '{sql:$sql}')"
+          }
+
+          restored_quick="$(d1_query "PRAGMA quick_check;")"
+          printf '%s' "$restored_quick" | jq -e '.success == true and .result[0].results.rows[0][0] == "ok"' >/dev/null
+
+          restored_fk="$(d1_query "PRAGMA foreign_key_check;")"
+          printf '%s' "$restored_fk" | jq -e '.success == true and ([.result[].results.rows[]?] | length == 0)' >/dev/null
+
+          restored_mode="$(d1_query "SELECT MAX(CASE WHEN setting_key='real_money_enabled' THEN setting_value END), MAX(CASE WHEN setting_key='demo_mode_enabled' THEN setting_value END) FROM app_settings;")"
+          printf '%s' "$restored_mode" | jq -e '.success == true and .result[0].results.rows[0][0] == "false" and .result[0].results.rows[0][1] == "true"' >/dev/null
+
+          restored_ledger="$(d1_query "SELECT COUNT(*) FROM wallets w WHERE w.balance_minor != COALESCE((SELECT SUM(CASE WHEN l.direction='credit' THEN l.amount_minor ELSE -l.amount_minor END) FROM wallet_ledger l WHERE l.wallet_id=w.id),0);")"
+          printf '%s' "$restored_ledger" | jq -e '.success == true and .result[0].results.rows[0][0] == 0' >/dev/null
+
+          curl --silent --show-error --fail -X DELETE "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$TEMP_DB_ID" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" >/dev/null
+          TEMP_DB_ID=""
+
+          echo "PASS: production D1 export restored into isolated SQLite and temporary D1."
           echo "PASS: full SQLite integrity_check = ok."
-          echo "PASS: foreign_key_check returned no violations."
-          echo "PASS: demo-only mode flags and wallet-ledger reconciliation verified."
-          echo "PASS: export and restored database removed from ephemeral runner."
+          echo "PASS: restored D1 quick_check and foreign_key_check passed."
+          echo "PASS: restored D1 demo-only mode and wallet-ledger reconciliation verified."
+          echo "PASS: temporary D1 and all export files deleted."
