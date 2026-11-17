@@ -1,10 +1,12 @@
-import { currentUser,json,readCookie,sha256,base32Encode,encryptTotpSecret } from "../../_auth.js";
+import { currentUser,json,base32Encode,encryptTotpSecret,consumeRateLimit } from "../../_auth.js";
 export async function onRequestPost({request,env}) {
   if(!env.DB)return json({error:"Database is not configured."},503);
+  if(!(request.headers.get("Content-Type")||"").toLowerCase().includes("application/json"))return json({error:"Send an empty JSON request body."},415);
   try {
     const user=await currentUser(request,env.DB);
     if(!user)return json({error:"Authentication required."},401);
     if(user.role!=="admin")return json({error:"Administrator access required."},403);
+    if(!await consumeRateLimit(env.DB,request,"admin-mfa-setup",user.id,5,3600))return json({error:"Too many MFA setup attempts. Try again later."},429);
     if(user.totpEnabled)return json({error:"Administrator MFA is already enabled."},409);
     const random=crypto.getRandomValues(new Uint8Array(20)),secret=base32Encode(random);
     const encrypted=await encryptTotpSecret(secret,env);
