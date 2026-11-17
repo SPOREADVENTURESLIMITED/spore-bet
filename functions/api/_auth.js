@@ -78,7 +78,7 @@ export const clearSessionCookie="spore_session=; HttpOnly; Secure; SameSite=Lax;
 export async function currentUser(request,db) {
   const token=readCookie(request,"spore_session");if(!token||token.length>128)return null;
   const tokenHash=await sha256(token);
-  return await db.prepare(
+  const user=await db.prepare(
     `SELECT u.id,u.email,u.phone,u.display_name AS displayName,u.role,u.status,u.totp_enabled AS totpEnabled,
             s.admin_mfa_verified AS adminMfaVerified,w.id AS walletId,w.balance_minor AS balanceMinor,w.currency
      FROM sessions s JOIN users u ON u.id=s.user_id
