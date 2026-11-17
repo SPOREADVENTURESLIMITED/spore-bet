@@ -12,7 +12,7 @@ export async function onRequestGet({ request, env }) {
               b.potential_return_minor AS potentialReturn, b.status, b.created_at AS createdAt
        FROM bets b WHERE b.user_id = ? ORDER BY b.created_at DESC LIMIT 50`
     ).bind(user.id).all();
-    return json({ bets: rows.results || [], mode: "demo-only" });
+    return json({ bets: rows.results || [], mode: "demo-and-cash" });
   } catch {
     return json({ error: "Bet history is temporarily unavailable." }, 503);
   }
@@ -32,9 +32,14 @@ export async function onRequestPost({ request, env }) {
   let body;
   try { body = await request.json(); } catch { return json({ error: "Invalid request body." }, 400); }
   const stake = body.stake;
+  const walletType = body.walletType === "cash" ? "cash" : "demo";
   const ids = Array.isArray(body.selectionIds) ? [...new Set(body.selectionIds)] : [];
   const key = typeof body.idempotencyKey === "string" ? body.idempotencyKey : "";
-  if (!Number.isSafeInteger(stake) || stake < 1 || stake > 1000000000) return json({ error: "Stake must be a whole number between 1 and 1,000,000,000 demo credits." }, 400);
+  if (!Number.isSafeInteger(stake) || stake < 1 || stake > 1000000000) return json({ error: "Stake must be a whole number between 1 and 1,000,000,000 minor units." }, 400);
+  if (walletType === "cash") {
+    const live = await env.DB.prepare("SELECT setting_value FROM app_settings WHERE setting_key='real_money_enabled'").first();
+    if (live?.setting_value !== "true") return json({ error: "Cash wagering is currently disabled by the administrator." }, 403);
+  }
   if (ids.length < 1 || ids.length > 10 || ids.some(id => typeof id !== "string" || id.length > 128)) return json({ error: "Choose 1–10 valid selections." }, 400);
   if (!/^[0-9a-f-]{36}$/i.test(key)) return json({ error: "A valid idempotency key is required." }, 400);
 
@@ -59,13 +64,21 @@ export async function onRequestPost({ request, env }) {
     if (!Number.isSafeInteger(potentialReturn)) return json({ error: "Potential return exceeds the supported limit." }, 400);
 
     const betId = crypto.randomUUID();
-    const walletId = user.walletId;
+    let walletId = user.walletId;
+    let currency = user.currency || "DCR";
+    if (walletType === "cash") {
+      const cashWallet = await env.DB.prepare("SELECT id,currency FROM wallets WHERE user_id=? AND wallet_type='cash' AND currency='UGX' AND status='active'").bind(user.id).first();
+      if (!cashWallet) return json({ error: "Cash wallet is not initialized." }, 409);
+      walletId = cashWallet.id;
+      currency = cashWallet.currency;
+    }
+    if (!walletId) return json({ error: "Wallet is unavailable." }, 409);
     const expectedOdds = rows.map(row => "(s.id = ? AND s.odds_decimal = ?)").join(" OR ");
-    const updateBindings = [stake, walletId, user.id, stake, ...rows.flatMap(row => [row.id, row.odds])];
+    const updateBindings = [stake, walletId, user.id, stake, walletType, ...rows.flatMap(row => [row.id, row.odds])];
     const statements = [
       env.DB.prepare(
         `UPDATE wallets SET balance_minor = balance_minor - ?
-         WHERE id = ? AND user_id = ? AND wallet_type = 'demo' AND status = 'active'
+         WHERE id = ? AND user_id = ? AND wallet_type = ? AND status = 'active'
            AND balance_minor >= ?
            AND (SELECT COUNT(*) FROM selections s JOIN markets m ON m.id=s.market_id
                 JOIN events e ON e.id=m.event_id
@@ -83,21 +96,21 @@ export async function onRequestPost({ request, env }) {
       ).bind(betId,...ids,betId),
       env.DB.prepare(
         `INSERT INTO wallet_ledger (id,wallet_id,entry_type,amount_minor,direction,reference,description)
-         SELECT lower(hex(randomblob(16))), ?, 'bet_stake', ?, 'debit', ?, 'Demo bet stake'
+         SELECT lower(hex(randomblob(16))), ?, 'bet_stake', ?, 'debit', ?, ?
          WHERE EXISTS (SELECT 1 FROM bets WHERE id = ?)`
-      ).bind(walletId,stake,`bet:${betId}`,betId),
+      ).bind(walletId,stake,`bet:${betId}`,walletType === "cash" ? "Cash bet stake" : "Demo bet stake",betId),
       env.DB.prepare(
         `INSERT INTO audit_logs (id,actor_user_id,action,entity_type,entity_id,metadata_json)
-         SELECT lower(hex(randomblob(16))), ?, 'demo_bet_placed', 'bet', ?, ?
+         SELECT lower(hex(randomblob(16))), ?, ?, 'bet', ?, ?
          WHERE EXISTS (SELECT 1 FROM bets WHERE id = ?)`
-      ).bind(user.id,betId,JSON.stringify({stake,selectionCount:ids.length}),betId)
+      ).bind(user.id,walletType === "cash" ? "cash_bet_placed" : "demo_bet_placed",betId,JSON.stringify({stake,selectionCount:ids.length,walletType}),betId)
     ];
     const result = await env.DB.batch(statements);
     if (result[0]?.meta?.changes !== 1 || result[1]?.meta?.changes !== 1) {
       return json({ error: "Bet could not be placed. Check your demo balance and selection availability." }, 409);
     }
     const wallet = await env.DB.prepare("SELECT balance_minor FROM wallets WHERE id = ?").bind(walletId).first();
-    return json({ message: "Demo bet recorded.", bet: { id: betId, stake, combinedOdds, potentialReturn, status: "pending" }, wallet: { balance: wallet?.balance_minor ?? 0, currency: user.currency || "DCR" }, mode: "demo-only" }, 201);
+    return json({ message: walletType === "cash" ? "Cash bet recorded." : "Demo bet recorded.", bet: { id: betId, stake, combinedOdds, potentialReturn, status: "pending", walletType }, wallet: { balance: wallet?.balance_minor ?? 0, currency }, mode: walletType === "cash" ? "cash" : "demo" }, 201);
   } catch (error) {
     const prior = await env.DB.prepare("SELECT id, stake_minor AS stake, status FROM bets WHERE user_id = ? AND idempotency_key = ?").bind(user.id, key).first().catch(() => null);
     if (prior) return json({ message: "This bet was already recorded.", bet: prior, replayed: true });
