@@ -45,7 +45,7 @@ document.getElementById("bootstrapAdmin").onclick=async()=>{
 };
 document.getElementById("beginMfa").onclick=async()=>{
  const status=document.getElementById("mfaStatus");status.textContent="Generating protected setup secret…";
- try{const r=await fetch("/api/admin/mfa/setup",{method:"POST",credentials:"same-origin"}),d=await r.json();if(!r.ok)throw new Error(d.error);document.getElementById("secret").textContent=d.secret;document.getElementById("uri").textContent=d.otpauthUrl;document.getElementById("secretWrap").hidden=false;status.textContent=d.message;}
+ try{const r=await fetch("/api/admin/mfa/setup",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:"{}"}),d=await r.json();if(!r.ok)throw new Error(d.error);document.getElementById("secret").textContent=d.secret;document.getElementById("uri").textContent=d.otpauthUrl;document.getElementById("secretWrap").hidden=false;status.textContent=d.message;}
  catch(e){status.textContent=e.message;}
 };
 document.getElementById("verifyMfa").onclick=async()=>{
