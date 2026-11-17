@@ -70,7 +70,7 @@ export async function verifyTotp(secret,code,now=Date.now()) {
 }
 export async function createSession(db,userId) {
   const tokenBytes=crypto.getRandomValues(new Uint8Array(32)),token=toBase64Url(tokenBytes),tokenHash=await sha256(token);
-  await db.prepare("INSERT INTO sessions (id,user_id,token_hash,expires_at) VALUES (?, ?, ?, datetime('now', '+7 days'))").bind(crypto.randomUUID(),userId,tokenHash).run();
+  await db.prepare("INSERT INTO sessions (id,user_id,token_hash,expires_at,last_seen_at) VALUES (?, ?, ?, datetime('now', '+7 days'), datetime('now'))").bind(crypto.randomUUID(),userId,tokenHash).run();
   return token;
 }
 export function sessionCookie(token) { return `spore_session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_DAYS*86400}`; }
