@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { currentUser, createSession } from "../functions/api/_auth.js";
+import { onRequestPost as revokeAllAdminSessions } from "../functions/api/admin/sessions/revoke-all.js";
 
 function fakeDb({ firstResult = null } = {}) {
   const statements = [];
+  const batches = [];
   const db = {
     prepare(sql) {
       const statement = {
@@ -15,9 +17,13 @@ function fakeDb({ firstResult = null } = {}) {
       };
       statements.push(statement);
       return statement;
+    },
+    async batch(items) {
+      batches.push(items);
+      return [{ meta: { changes: 2 } }, {}];
     }
   };
-  return { db, statements };
+  return { db, statements, batches };
 }
 
 test("anonymous requests do not query the session store", async () => {
@@ -50,4 +56,32 @@ test("new sessions initialize the idle activity timestamp", async () => {
   await createSession(db, "test-user");
   assert.match(statements[0].sql, /expires_at,last_seen_at/);
   assert.match(statements[0].sql, /datetime\('now'\)/);
+});
+
+function adminPostRequest() {
+  return new Request("https://example.test/api/admin/sessions/revoke-all", {
+    method: "POST",
+    headers: { Cookie: "spore_session=opaque-test-token", "Content-Type": "application/json" },
+    body: "{}"
+  });
+}
+
+test("administrator-wide revocation requires an MFA-verified administrator", async () => {
+  const { db, batches } = fakeDb({ firstResult: { id: "customer-1", role: "customer", adminMfaVerified: 0 } });
+  const response = await revokeAllAdminSessions({ request: adminPostRequest(), env: { DB: db } });
+  assert.equal(response.status, 403);
+  assert.equal(batches.length, 0);
+});
+
+test("administrator-wide revocation atomically revokes admins and records audit event", async () => {
+  const { db, batches } = fakeDb({ firstResult: { id: "admin-1", role: "admin", adminMfaVerified: 1 } });
+  const response = await revokeAllAdminSessions({ request: adminPostRequest(), env: { DB: db } });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.revokedSessions, 2);
+  assert.match(response.headers.get("set-cookie"), /Max-Age=0/);
+  assert.equal(batches.length, 1);
+  assert.equal(batches[0].length, 2);
+  assert.match(batches[0][0].sql, /user_id IN \(SELECT id FROM users WHERE role='admin'\)/);
+  assert.match(batches[0][1].sql, /admin_sessions_revoked/);
 });
