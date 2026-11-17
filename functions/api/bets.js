@@ -2,7 +2,9 @@ import { currentUser, json } from "./_auth.js";
 
 export async function onRequestGet({ request, env }) {
   if (!env.DB) return json({ error: "Database is not configured." }, 503);
-  const user = await currentUser(request, env.DB);
+  let user;
+  try { user = await currentUser(request, env.DB); }
+  catch { return json({ error: "Account session could not be verified. Please retry." }, 503); }
   if (!user) return json({ error: "Authentication required." }, 401);
   try {
     const rows = await env.DB.prepare(
@@ -18,7 +20,9 @@ export async function onRequestGet({ request, env }) {
 
 export async function onRequestPost({ request, env }) {
   if (!env.DB) return json({ error: "Database is not configured." }, 503);
-  const user = await currentUser(request, env.DB);
+  let user;
+  try { user = await currentUser(request, env.DB); }
+  catch { return json({ error: "Account session could not be verified. Please retry." }, 503); }
   if (!user) return json({ error: "Authentication required." }, 401);
   if (user.role === "admin" && !user.adminMfaVerified) return json({ error: "Complete administrator MFA before placing bets." }, 403);
   if (!(request.headers.get("Content-Type") || "").toLowerCase().includes("application/json")) {
