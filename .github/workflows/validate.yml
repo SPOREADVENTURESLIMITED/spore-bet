@@ -28,6 +28,8 @@ jobs:
           grep -q 'revoke-all' admin.html
           grep -q 'admin_sessions_revoked' functions/api/admin/sessions/revoke-all.js
           grep -q 'last_seen_at' migrations/0007_session_idle_timeout.sql
+      - name: Syntax-check post-deploy smoke script
+        run: node --check scripts/post-deploy-smoke.mjs
       - name: Run session security unit tests
         run: npm test
       - name: Validate web app manifest JSON
