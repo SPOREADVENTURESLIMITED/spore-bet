@@ -77,3 +77,19 @@ These are intentionally not fabricated or prefilled by engineering.
 ## F. Release gate
 
 Keep SPORE BET in demo-only mode until every required legal, licensing, payment, identity, AML, responsible-gambling, financial-control and security gate is documented as approved. This codebase is not certified for real-money operations. A future regulated launch requires a separately reviewed architecture, implementation, independent security testing and jurisdiction-specific sign-off.
+
+
+## G. Session inactivity and emergency administrator sign-out
+
+- Every authenticated request updates the session's `last_seen_at` timestamp.
+- Sessions idle for more than 30 minutes are rejected; the absolute seven-day expiry remains in force.
+- The dashboard includes **Revoke all administrator sessions**. This action requires an active MFA-verified administrator, revokes all administrator sessions across the organization (including the invoking session), writes an audit event, and clears the current session cookie.
+- Use this control after suspected administrator credential exposure, lost devices, or a planned organization-wide sign-out. All administrators must sign in again and complete MFA.
+- Customer sessions are not affected by this administrator-only operation.
+
+## H. Backup and recovery verification record
+
+- D1 export API accepted a full SQL export request and reported the export completed.
+- D1 `PRAGMA quick_check` returned `ok`; `PRAGMA foreign_key_check` returned no rows.
+- D1 denied `PRAGMA integrity_check` through the authorized query interface (`SQLITE_AUTH`).
+- The signed export artifact could not be fetched by the isolated execution environment, so no clean-room import/restore or offline `sqlite3 integrity_check` is claimed. Before production financial use, the administrator must retain an encrypted export outside the Cloudflare account, restore it to an isolated D1 database, compare row counts and key invariants, and record measured RPO/RTO. Keep demo-only mode until this rehearsal is completed.
