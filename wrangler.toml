@@ -2,6 +2,9 @@ name = "spore-bet"
 compatibility_date = "2026-11-15"
 pages_build_output_dir = "."
 
+[vars]
+ADMIN_BOOTSTRAP_EMAIL = "sporeafrica@gmail.com"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "spore-bet-db"
