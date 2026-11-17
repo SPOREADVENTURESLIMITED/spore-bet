@@ -6,6 +6,8 @@ const DEFAULT_SPORTS = [
 ];
 
 export async function onRequestGet({ env }) {
+  let realMoneyEnabled = false;
+  if (env.DB) { try { const mode = await env.DB.prepare("SELECT setting_value FROM app_settings WHERE setting_key='real_money_enabled'").first(); realMoneyEnabled = mode?.setting_value === "true"; } catch {} }
   let sports = DEFAULT_SPORTS;
   let source = "fallback";
 
@@ -29,7 +31,7 @@ export async function onRequestGet({ env }) {
   }
 
   return Response.json(
-    { sports, mode: "demo-only", realMoneyEnabled: false, source },
+    { sports, mode: realMoneyEnabled ? "cash-and-demo" : "demo-only", realMoneyEnabled, source, footballProviderConfigured: Boolean(env.SPORTMONKS_API_TOKEN) },
     {
       headers: {
         "Cache-Control": "no-store",
