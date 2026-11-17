@@ -1,4 +1,15 @@
 export async function onRequest({ request, next }) {
+  const url = new URL(request.url);
+  const unsafeMethod = !["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase());
+  const origin = request.headers.get("Origin");
+  const fetchSite = request.headers.get("Sec-Fetch-Site");
+  if (url.pathname.startsWith("/api/") && unsafeMethod &&
+      ((origin && origin !== url.origin) || fetchSite === "cross-site")) {
+    return Response.json({ error: "Cross-origin request rejected." }, {
+      status: 403,
+      headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" }
+    });
+  }
   const response = await next();
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
