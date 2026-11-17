@@ -9,3 +9,10 @@ ADMIN_BOOTSTRAP_EMAIL = "sporeafrica@gmail.com"
 binding = "DB"
 database_name = "spore-bet-db"
 database_id = "142040a9-7084-4eb3-b9f7-f423ecfe1244"
+
+[previews.vars]
+ADMIN_BOOTSTRAP_EMAIL = "sporeafrica@gmail.com"
+
+[[previews.d1_databases]]
+binding = "DB"
+database_id = "1e5d2d3e-a638-4725-ae98-a017edf74a8d"
