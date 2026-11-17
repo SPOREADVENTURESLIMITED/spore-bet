@@ -17,7 +17,7 @@ The review identified two session-lifecycle gaps: there was no inactivity timeou
 - Demo betting API, D1 schema/migrations, idempotency and wallet/ledger controls.
 - Public, admin and money-preview UI paths.
 - D1 production database metadata, health/integrity queries, export and Time Travel bookmark access.
-- CI validation and a new Playwright desktop/mobile regression matrix.
+- CI validation, CodeQL analysis, Playwright desktop/mobile regression, and post-deploy production smoke checks.
 
 ## Evidence and results
 
@@ -25,7 +25,7 @@ The review identified two session-lifecycle gaps: there was no inactivity timeou
 |---|---|---|
 | Administrator authorization | Existing admin overview is role- and MFA-gated | Prior production check: anonymous request returned 401; admin account and MFA were previously verified. |
 | Session security | Improvement prepared | PR #5 adds 30-minute idle expiry and all-admin revocation; migration 0007 initializes activity timestamps. Not active in production until PR merge and deployment. |
-| API safeguards | Source reviewed; automated regression added | Existing middleware rejects cross-origin state-changing requests and applies security headers. New browser test checks headers and a cross-site logout attempt. |
+| API safeguards | Source reviewed; automated regression added | Existing middleware rejects cross-origin state-changing requests and applies security headers. Playwright and post-deploy smoke checks verify headers, cross-site logout rejection, anonymous admin denial and unauthenticated administrator-revocation denial. |
 | SQL handling | Source reviewed | Parameterized D1 statements are used in the reviewed authentication and betting paths. |
 | Browser regression | Passed | Playwright passed on Chromium, Firefox, WebKit, Pixel 7 emulation and iPhone 13 emulation, including mobile overflow, admin access denial, demo-only preview and security-header/CSRF checks. |
 | Database quick integrity | Passed | D1 PRAGMA quick_check returned ok; PRAGMA foreign_key_check returned no rows. |
