@@ -2,7 +2,7 @@ name: SPORE BET post-deploy production smoke test
 
 on:
   workflow_run:
-    workflows: ["Deploy SPORE BET to Cloudflare Pages"]
+    workflows: ["SPORE BET backup restore and SQLite integrity check"]
     types: [completed]
   workflow_dispatch:
 
