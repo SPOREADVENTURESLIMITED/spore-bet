@@ -18,7 +18,8 @@ export async function onRequestGet({ request, env }) {
     if (!user.adminMfaVerified) return json({ error: "Administrator MFA verification is required.", code: "MFA_REQUIRED" }, 403);
     const settings = await env.DB.prepare(SELECT).first();
     if (!settings) return json({ error: "Payment settings are not initialized." }, 503);
-    return json({ settings, editable: true, realMoneyEnabled: false });
+    const live = await env.DB.prepare("SELECT setting_value FROM app_settings WHERE setting_key='real_money_enabled'").first();
+    return json({ settings, editable: true, realMoneyEnabled: live?.setting_value === "true" });
   } catch {
     return json({ error: "Payment settings are temporarily unavailable." }, 503);
   }
@@ -42,7 +43,8 @@ export async function onRequestPut({ request, env }) {
       env.DB.prepare("INSERT INTO audit_logs (id,actor_user_id,action,entity_type,entity_id) VALUES (?,?,'payment_settings_updated','payment_settings','primary')").bind(crypto.randomUUID(),user.id)
     ]);
     const settings = await env.DB.prepare(SELECT).first();
-    return json({ message: "Payment destination details updated.", settings, editable: true, realMoneyEnabled: false });
+    const live = await env.DB.prepare("SELECT setting_value FROM app_settings WHERE setting_key='real_money_enabled'").first();
+    return json({ message: "Payment destination details updated.", settings, editable: true, realMoneyEnabled: live?.setting_value === "true" });
   } catch {
     return json({ error: "Payment settings could not be saved. Please retry." }, 503);
   }
