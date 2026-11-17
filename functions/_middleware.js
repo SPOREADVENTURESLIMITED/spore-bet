@@ -22,7 +22,8 @@ export async function onRequest({ request, next }) {
   if (new URL(request.url).pathname.startsWith("/api/")) {
     headers.set("Cache-Control", "no-store");
   }
-  return new Response(response.body, {
+  const body = [204, 205, 304].includes(response.status) ? null : response.body;
+  return new Response(body, {
     status: response.status,
     statusText: response.statusText,
     headers
