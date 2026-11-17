@@ -1,0 +1,77 @@
+name: SPORE BET backup restore and SQLite integrity check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/backup-restore-check.yml"
+      - "migrations/**"
+  schedule:
+    - cron: "17 2 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spore-bet-backup-restore-verification
+  cancel-in-progress: false
+
+jobs:
+  export-restore-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install SQLite and Wrangler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y sqlite3
+          npm install --global wrangler@4
+
+      - name: Export production D1 and restore into isolated local SQLite
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          BACKUP_SQL="$RUNNER_TEMP/spore-bet-export.sql"
+          RESTORE_DB="$RUNNER_TEMP/spore-bet-restore-test.sqlite"
+          trap 'rm -f "$BACKUP_SQL" "$RESTORE_DB"' EXIT
+
+          wrangler d1 export spore-bet-db --remote --output="$BACKUP_SQL" --compatibility=sqlite3_cli_only
+
+          test -s "$BACKUP_SQL"
+          sqlite3 "$RESTORE_DB" < "$BACKUP_SQL"
+
+          integrity="$(sqlite3 "$RESTORE_DB" "PRAGMA integrity_check;")"
+          if [ "$integrity" != "ok" ]; then
+            echo "SQLite integrity_check failed."
+            exit 1
+          fi
+
+          foreign_keys="$(sqlite3 "$RESTORE_DB" "PRAGMA foreign_keys=ON; PRAGMA foreign_key_check;")"
+          if [ -n "$foreign_keys" ]; then
+            echo "SQLite foreign_key_check reported violations."
+            exit 1
+          fi
+
+          real_money="$(sqlite3 "$RESTORE_DB" "SELECT setting_value FROM app_settings WHERE setting_key='real_money_enabled' LIMIT 1;")"
+          demo_mode="$(sqlite3 "$RESTORE_DB" "SELECT setting_value FROM app_settings WHERE setting_key='demo_mode_enabled' LIMIT 1;")"
+          if [ "$real_money" != "false" ] || [ "$demo_mode" != "true" ]; then
+            echo "Restored database mode flags are not demo-only."
+            exit 1
+          fi
+
+          ledger_mismatches="$(sqlite3 "$RESTORE_DB" "SELECT COUNT(*) FROM wallets w WHERE w.balance_minor != COALESCE((SELECT SUM(CASE WHEN l.direction='credit' THEN l.amount_minor ELSE -l.amount_minor END) FROM wallet_ledger l WHERE l.wallet_id=w.id),0);")"
+          if [ "$ledger_mismatches" != "0" ]; then
+            echo "Restored wallet and ledger balances do not reconcile."
+            exit 1
+          fi
+
+          echo "PASS: production D1 export restored into isolated SQLite."
+          echo "PASS: full SQLite integrity_check = ok."
+          echo "PASS: foreign_key_check returned no violations."
+          echo "PASS: demo-only mode flags and wallet-ledger reconciliation verified."
+          echo "PASS: export and restored database removed from ephemeral runner."
