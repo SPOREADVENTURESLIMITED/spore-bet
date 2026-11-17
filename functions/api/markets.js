@@ -7,6 +7,8 @@ export async function onRequestGet({ request, env }) {
     );
   }
 
+  let realMoneyEnabled = false;
+  try { const mode = await env.DB.prepare("SELECT setting_value FROM app_settings WHERE setting_key='real_money_enabled'").first(); realMoneyEnabled = mode?.setting_value === "true"; } catch {}
   const url = new URL(request.url);
   const eventId = url.searchParams.get("event");
   if (!eventId || eventId.length > 128) {
@@ -28,7 +30,7 @@ export async function onRequestGet({ request, env }) {
     ).bind(eventId).all();
 
     return Response.json(
-      { markets: result.results || [], mode: "demo-only", realMoneyEnabled: false },
+      { markets: result.results || [], mode: realMoneyEnabled ? "cash-and-demo" : "demo-only", realMoneyEnabled },
       { headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } }
     );
   } catch {
