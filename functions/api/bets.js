@@ -74,7 +74,7 @@ export async function onRequestPost({ request, env }) {
     }
     if (!walletId) return json({ error: "Wallet is unavailable." }, 409);
     const expectedOdds = rows.map(row => "(s.id = ? AND s.odds_decimal = ?)").join(" OR ");
-    const updateBindings = [stake, walletId, user.id, stake, walletType, ...rows.flatMap(row => [row.id, row.odds])];
+    const updateBindings = [stake, walletId, user.id, walletType, stake, ...rows.flatMap(row => [row.id, row.odds])];
     const statements = [
       env.DB.prepare(
         `UPDATE wallets SET balance_minor = balance_minor - ?
