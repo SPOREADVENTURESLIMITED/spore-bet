@@ -13,8 +13,8 @@ export async function onRequestGet({ env }) {
   return Response.json({
     service: "SPORE BET API",
     status: healthy ? "ok" : "degraded",
-    mode: "demo-only",
-    realMoneyEnabled: false,
+    mode: "demo-and-cash",
+    realMoneyEnabled: true,
     databaseConfigured,
     databaseConnected,
     timestamp: new Date().toISOString()
