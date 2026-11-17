@@ -6,6 +6,8 @@ export async function onRequestGet({ request, env }) {
     );
   }
 
+  let realMoneyEnabled = false;
+  try { const mode = await env.DB.prepare("SELECT setting_value FROM app_settings WHERE setting_key='real_money_enabled'").first(); realMoneyEnabled = mode?.setting_value === "true"; } catch {}
   const url = new URL(request.url);
   const sportId = url.searchParams.get("sport");
   const limitValue = Number(url.searchParams.get("limit") || 50);
@@ -32,7 +34,7 @@ export async function onRequestGet({ request, env }) {
 
     const result = await query.all();
     return Response.json(
-      { events: result.results || [], mode: "demo-only", databaseConfigured: true },
+      { events: result.results || [], mode: realMoneyEnabled ? "cash-and-demo" : "demo-only", realMoneyEnabled, databaseConfigured: true },
       { headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } }
     );
   } catch {
