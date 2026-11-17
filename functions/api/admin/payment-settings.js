@@ -1,4 +1,4 @@
-import { currentUser, json } from "../../_auth.js";
+import { currentUser, json } from "../_auth.js";
 
 const SELECT = "SELECT airtel_merchant AS airtelMerchant, mtn_merchant AS mtnMerchant, bank_name AS bankName, bank_account_number AS accountNumber, bank_branch AS branch, bank_swift AS swift, updated_at AS updatedAt FROM payment_settings WHERE id=1";
 const fields = ["airtelMerchant","mtnMerchant","bankName","accountNumber","branch","swift"];
