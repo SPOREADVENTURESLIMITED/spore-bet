@@ -83,6 +83,11 @@ export async function currentUser(request,db) {
             s.admin_mfa_verified AS adminMfaVerified,w.id AS walletId,w.balance_minor AS balanceMinor,w.currency
      FROM sessions s JOIN users u ON u.id=s.user_id
      LEFT JOIN wallets w ON w.user_id=u.id AND w.wallet_type='demo'
-     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>datetime('now') AND u.status='active' LIMIT 1`
+     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>datetime('now')
+       AND s.last_seen_at>datetime('now','-30 minutes') AND u.status='active' LIMIT 1`
   ).bind(tokenHash).first();
+  if (user) {
+    await db.prepare("UPDATE sessions SET last_seen_at=datetime('now') WHERE token_hash=? AND revoked_at IS NULL").bind(tokenHash).run();
+  }
+  return user;
 }
