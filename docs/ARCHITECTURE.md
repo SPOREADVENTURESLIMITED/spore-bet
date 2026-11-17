@@ -63,7 +63,7 @@ All cash wagering, deposits, withdrawals, payouts and cash wallet operations rem
 
 - New public registrations receive the `customer` role; role is never accepted from public registration input.\n- The first administrator can be created only once through `/api/admin/bootstrap`, requiring `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_TOKEN` and an unused D1 `admin_bootstrap` guard. The token is one-time and should be removed from Cloudflare after activation.
 - Accounts must be active to establish an authenticated session.
-- Session cookies are Secure, HttpOnly and SameSite=Lax. Only a SHA-256 token hash is stored in D1. Sessions have a seven-day absolute lifetime and can be revoked; a separate idle timeout and administrator-wide session revocation workflow are not yet implemented.
+- Session cookies are Secure, HttpOnly and SameSite=Lax. Only a SHA-256 token hash is stored in D1. Mutating API requests reject mismatched Origin and cross-site Fetch Metadata. Logout reports success only after a session revocation attempt succeeds. Sessions have a seven-day absolute lifetime and can be revoked; a separate idle timeout and administrator-wide session revocation workflow are not yet implemented.
 - Sessions expire after seven days and are revocable.
 - Administrator endpoints require an active account with `role='admin'`.
 - Admin dashboard data additionally requires a session with `admin_mfa_verified=1`.
