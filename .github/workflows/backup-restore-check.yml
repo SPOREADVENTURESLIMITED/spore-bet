@@ -113,8 +113,8 @@ jobs:
           restored_fk="$(d1_query "PRAGMA foreign_key_check;")"
           printf '%s' "$restored_fk" | jq -e '.success == true and (.result[0].results | length == 0)' >/dev/null
 
-          restored_mode="$(d1_query "SELECT setting_value AS real_money FROM app_settings WHERE setting_key='real_money_enabled' UNION ALL SELECT setting_value AS demo_mode FROM app_settings WHERE setting_key='demo_mode_enabled';")"
-          printf '%s' "$restored_mode" | jq -e '.success == true and .result[0].results[0].real_money == "false" and .result[0].results[1].demo_mode == "true"' >/dev/null
+          restored_mode="$(d1_query "SELECT (SELECT setting_value FROM app_settings WHERE setting_key='real_money_enabled') AS real_money, (SELECT setting_value FROM app_settings WHERE setting_key='demo_mode_enabled') AS demo_mode;")"
+          printf '%s' "$restored_mode" | jq -e '.success == true and .result[0].results[0].real_money == "false" and .result[0].results[0].demo_mode == "true"' >/dev/null
 
           restored_ledger="$(d1_query "SELECT COUNT(*) FROM wallets w WHERE w.balance_minor != COALESCE((SELECT SUM(CASE WHEN l.direction='credit' THEN l.amount_minor ELSE -l.amount_minor END) FROM wallet_ledger l WHERE l.wallet_id=w.id),0);")"
           printf '%s' "$restored_ledger" | jq -e '.success == true and .result[0].results[0].mismatches == 0' >/dev/null
