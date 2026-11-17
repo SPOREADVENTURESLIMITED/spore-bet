@@ -66,7 +66,7 @@ function adminPostRequest() {
   });
 }
 
-test("administrator-wide revocation requires an MFA-verified administrator", async () => {
+test("administrator-wide revocation rejects customer accounts", async () => {
   const { db, batches } = fakeDb({ firstResult: { id: "customer-1", role: "customer", adminMfaVerified: 0 } });
   const response = await revokeAllAdminSessions({ request: adminPostRequest(), env: { DB: db } });
   assert.equal(response.status, 403);
@@ -84,4 +84,19 @@ test("administrator-wide revocation atomically revokes admins and records audit 
   assert.equal(batches[0].length, 2);
   assert.match(batches[0][0].sql, /user_id IN \(SELECT id FROM users WHERE role='admin'\)/);
   assert.match(batches[0][1].sql, /admin_sessions_revoked/);
+});
+
+test("session lookup also enforces absolute expiry and revoked status", async () => {
+  const { db, statements } = fakeDb();
+  const request = new Request("https://example.test/", { headers: { Cookie: "spore_session=opaque-test-token" } });
+  await currentUser(request, db);
+  assert.ok(statements[0].sql.includes("s.expires_at>datetime('now')"));
+  assert.ok(statements[0].sql.includes("s.revoked_at IS NULL"));
+});
+
+test("administrator-wide revocation rejects an administrator without verified MFA", async () => {
+  const { db, batches } = fakeDb({ firstResult: { id: "admin-1", role: "admin", adminMfaVerified: 0 } });
+  const response = await revokeAllAdminSessions({ request: adminPostRequest(), env: { DB: db } });
+  assert.equal(response.status, 403);
+  assert.equal(batches.length, 0);
 });
