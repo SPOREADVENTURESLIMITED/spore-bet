@@ -91,8 +91,8 @@ Keep SPORE BET in demo-only mode until every required legal, licensing, payment,
 
 - D1 export API accepted a full SQL export request and reported the export completed.
 - D1 `PRAGMA quick_check` returned `ok`; `PRAGMA foreign_key_check` returned no rows.
-- D1 denied `PRAGMA integrity_check` through the authorized query interface (`SQLITE_AUTH`).
-- The signed export artifact could not be fetched by the isolated execution environment, so no clean-room import/restore or offline `sqlite3 integrity_check` is claimed. Before production financial use, the administrator must retain an encrypted export outside the Cloudflare account, restore it to an isolated D1 database, compare row counts and key invariants, and record measured RPO/RTO. Keep demo-only mode until this rehearsal is completed.
+- D1 denied direct `PRAGMA integrity_check` through the authorized query interface (`SQLITE_AUTH`). The scheduled GitHub Actions export/restore workflow bypasses that limitation safely by restoring the export into an isolated SQLite file and running the full engine-level integrity check there.
+- The SQL-to-SQLite restoration passed. The workflow is being extended to also import the export into a temporary D1 database, verify its key invariants, and delete that temporary database. A retained off-site archive and measured full-service RPO/RTO remain separate recovery requirements.
 
 
 ## I. Automated backup restore verification
