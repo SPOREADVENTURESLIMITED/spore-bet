@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#071b16"><title>SPORE BET | Real-time Money</title>
+<style>
+:root{color-scheme:dark;--bg:#071b16;--panel:#102820;--line:#25483b;--green:#a6ef45;--muted:#9cb5aa;--white:#f3f8f4;--gold:#f4c95d;--red:#ff9c91}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% -10%,#1b4935 0,transparent 45%),var(--bg);color:var(--white);font:14px/1.5 system-ui;padding:20px}.wrap{max-width:1180px;margin:auto}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{margin:0;font-size:26px}.muted{color:var(--muted);font-size:12px}a{color:var(--green)}button,select,input{font:inherit;border-radius:9px;border:1px solid var(--line);padding:10px 12px;background:#0a2018;color:var(--white)}button{cursor:pointer;font-weight:750;background:#18382b}button.primary{background:var(--green);color:#102014;border-color:var(--green)}button.danger{border-color:#78423b;color:#ffb4aa}button:disabled{opacity:.45;cursor:not-allowed}.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:18px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:16px 0}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}.metric{font-size:27px;font-weight:850;color:var(--green);overflow-wrap:anywhere}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:850px}th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px}.status{display:inline-block;padding:4px 8px;border:1px solid var(--line);border-radius:99px;font-size:11px}.pending{color:var(--gold)}.approved,.paid{color:var(--green)}.rejected,.failed{color:var(--red)}.actions{display:flex;gap:6px;flex-wrap:wrap}.notice{border:1px solid #6c5724;background:#3a2d12;color:#f8df9b;border-radius:10px;padding:12px;margin:14px 0}.error{color:var(--red)}.empty{text-align:center;padding:28px;color:var(--muted)}.toplink{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+</style></head><body><main class="wrap">
+<header><div><h1>💳 Real-time Money</h1><div class="muted">Cash operations · transaction monitoring · administrator approval</div></div><div class="toplink"><a href="/admin.html">← Admin dashboard</a><a href="/">Sportsbook</a></div></header>
+<div class="notice">Live transaction monitoring refreshes every 10 seconds. Deposits are credited only after the administrator verifies receipt. Mark a withdrawal as paid only after the payout has actually been sent. This interface records and reviews transactions; it does not itself connect to Airtel, MTN or a bank payment API.</div>
+<section class="grid">
+<article class="card"><div class="muted">Cash wallet balances (UGX minor units)</div><div class="metric" id="cashBalance">—</div><div class="muted">Total recorded customer cash-wallet balances</div></article>
+<article class="card"><div class="muted">Pending deposits</div><div class="metric" id="pendingDeposits">—</div><div class="muted">Awaiting receipt verification</div></article>
+<article class="card"><div class="muted">Pending withdrawals</div><div class="metric" id="pendingWithdrawals">—</div><div class="muted">Reserved pending payout</div></article>
+<article class="card"><div class="muted">Real-money mode</div><div class="metric" id="mode">—</div><div class="muted" id="providerStatus">Checking provider setup…</div></article>
+</section>
+<div class="toolbar"><label class="muted">Show <select id="filter"><option value="all">All transactions</option><option value="pending">Pending only</option><option value="deposit">Deposits</option><option value="withdrawal">Withdrawals</option></select></label><button class="primary" id="refresh">↻ Refresh now</button><span class="muted" id="updated">Waiting for secure administrator session…</span></div>
+<section class="card"><h2 style="margin-top:0">Transaction queue</h2><div class="tablewrap"><table><thead><tr><th>Created</th><th>Customer</th><th>Type</th><th>Amount</th><th>Method</th><th>Reference</th><th>Status</th><th>Review</th></tr></thead><tbody id="rows"><tr><td colspan="8" class="empty">Loading secure transaction queue…</td></tr></tbody></table></div><p class="muted">All decisions are protected by administrator authentication and MFA and are recorded in the audit log.</p></section>
+<p id="message" class="muted" aria-live="polite"></p>
+</main><script>
+const $=id=>document.getElementById(id);let transactions=[],busy=false;
+const fmt=n=>Number(n||0).toLocaleString("en-UG");
+function showMessage(s,bad=false){$("message").textContent=s;$("message").className=bad?"muted error":"muted";}
+async function load(){
+ if(busy)return;busy=true;$("updated").textContent="Refreshing…";
+ try{
+  const [overviewRes,txRes]=await Promise.all([
+   fetch("/api/admin/overview",{credentials:"same-origin",cache:"no-store"}),
+   fetch("/api/admin/cash-transactions",{credentials:"same-origin",cache:"no-store"})
+  ]);
+  const overview=await overviewRes.json(),tx=await txRes.json();
+  if(overviewRes.status===401||overviewRes.status===403||txRes.status===401||txRes.status===403){
+   $("rows").innerHTML='<tr><td colspan="8" class="empty">Administrator sign-in or MFA is required. <a href="/admin.html">Open admin sign-in</a>.</td></tr>';
+   $("updated").textContent="Access not verified";busy=false;return;
+  }
+  if(!overviewRes.ok)throw new Error(overview.error||"Could not load account summary.");
+  if(!txRes.ok)throw new Error(tx.error||"Could not load transaction queue.");
+  $("cashBalance").textContent=fmt(overview.summary?.cashWalletBalances);
+  $("mode").textContent=overview.realMoneyEnabled?"ENABLED":"DISABLED";
+  $("mode").style.color=overview.realMoneyEnabled?"var(--green)":"var(--gold)";
+  $("providerStatus").textContent=overview.footballProviderConfigured?"Football data API configured":"Football data API not configured";
+  transactions=tx.transactions||[];
+  $("pendingDeposits").textContent=fmt(transactions.filter(t=>t.type==="deposit"&&t.status==="pending").length);
+  $("pendingWithdrawals").textContent=fmt(transactions.filter(t=>t.type==="withdrawal"&&t.status==="pending").length);
+  render();$("updated").textContent="Last updated "+new Date().toLocaleTimeString()+" · auto-refresh 10s";
+ }catch(e){showMessage(e.message,true);$("updated").textContent="Refresh failed";}
+ finally{busy=false;}
+}
+function render(){
+ const filter=$("filter").value;
+ const list=transactions.filter(t=>filter==="all"||(filter==="pending"?t.status==="pending":t.type===filter));
+ const body=$("rows");body.textContent="";
+ if(!list.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=8;td.className="empty";td.textContent="No matching transactions.";tr.append(td);body.append(tr);return;}
+ for(const t of list){
+  const tr=document.createElement("tr");
+  const values=[new Date((t.createdAt||"").replace(" ","T")+"Z").toLocaleString(),t.email||t.userId,t.type,fmt(t.amount)+" "+(t.currency||"UGX")+" minor units",t.method,t.reference||"—",t.status];
+  for(let i=0;i<values.length;i++){const td=document.createElement("td");td.textContent=values[i];if(i===6){const span=document.createElement("span");span.className="status "+t.status;span.textContent=t.status;td.textContent="";td.append(span);}tr.append(td);}
+  const action=document.createElement("td"),group=document.createElement("div");group.className="actions";
+  if(t.status==="pending"){
+   const approve=document.createElement("button");approve.textContent=t.type==="deposit"?"Verify & credit":"Mark paid";approve.className="primary";approve.onclick=()=>review(t,t.type==="deposit"?"approve":"paid");
+   const reject=document.createElement("button");reject.textContent="Reject";reject.className="danger";reject.onclick=()=>review(t,"reject");
+   group.append(approve,reject);
+  }else group.textContent="Reviewed";
+  action.append(group);tr.append(action);body.append(tr);
+ }
+}
+async function review(t,decision){
+ const verb=decision==="approve"?"approve this deposit and credit the customer wallet":decision==="paid"?"mark this withdrawal as paid (confirm it has already been sent)":"reject this transaction";
+ if(!confirm("Are you sure you want to "+verb+"?"))return;
+ const note=prompt("Administrator note (optional):","");if(note===null)return;
+ showMessage("Submitting transaction decision…");
+ try{
+  const r=await fetch("/api/admin/cash-transactions",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({transactionId:t.id,decision,note})});
+  const d=await r.json();if(!r.ok)throw new Error(d.error||"Review failed.");
+  showMessage(d.message||"Transaction updated.");await load();
+ }catch(e){showMessage(e.message,true);}
+}
+$("refresh").onclick=load;$("filter").onchange=render;load();setInterval(load,10000);
+</script></body></html>
