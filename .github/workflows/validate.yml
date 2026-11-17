@@ -24,6 +24,10 @@ jobs:
           grep -q "role = 'admin'" functions/api/admin/bootstrap.js
           grep -q 'admin_bootstrap' migrations/0006_first_admin_bootstrap.sql
           grep -q 'bootstrapAdmin' admin.html
+          grep -q 'last_seen_at' functions/api/_auth.js
+          grep -q 'revoke-all' admin.html
+          grep -q 'admin_sessions_revoked' functions/api/admin/sessions/revoke-all.js
+          grep -q 'last_seen_at' migrations/0007_session_idle_timeout.sql
       - name: Validate web app manifest JSON
         run: python -m json.tool manifest.webmanifest >/dev/null
       - name: Verify PWA wiring and content-type rules
