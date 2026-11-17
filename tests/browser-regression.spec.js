@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, request as apiRequest } from "@playwright/test";
 
 test("public sportsbook shell loads without horizontal overflow", async ({ page }) => {
   const response = await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -13,7 +13,7 @@ test("public sportsbook shell loads without horizontal overflow", async ({ page 
 });
 
 test("health endpoint reports healthy demo-only mode", async ({ request }) => {
-  const api = await request.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
+  const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
   const response = await api.get("/api/health");
   expect(response.status()).toBe(200);
   const health = await response.json();
@@ -27,7 +27,7 @@ test("administrator page loads but protected overview rejects anonymous access",
   const response = await page.goto("/admin", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: /SPORE BET.*Admin/i })).toBeVisible();
-  const api = await request.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
+  const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
   const protectedResponse = await api.get("/api/admin/overview");
   expect(protectedResponse.status()).toBe(401);
   await api.dispose();
@@ -41,7 +41,7 @@ test("money interface is explicitly preview-only and does not enable payment", a
 });
 
 test("security headers and cross-site state-change guard are present", async ({ request }) => {
-  const api = await request.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
+  const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
   const pageResponse = await api.get("/");
   expect(pageResponse.status()).toBe(200);
   const headers = pageResponse.headers();
