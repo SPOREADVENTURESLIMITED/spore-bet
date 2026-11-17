@@ -33,5 +33,20 @@ test("money interface is explicitly preview-only and does not enable payment", a
   const response = await page.goto("/money-preview.html", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expect(page.locator("body")).toContainText(/preview only|preview-only/i);
-  await expect(page.locator("body")).toContainText(/real money.*disabled|payments.*disabled/i);
+  await expect(page.locator("body")).toContainText(/deposits, withdrawals, payouts and real-money wagering remain disabled/i);
+});
+
+test("security headers and cross-site state-change guard are present", async ({ request }) => {
+  const pageResponse = await request.get("/");
+  expect(pageResponse.status()).toBe(200);
+  const headers = pageResponse.headers();
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["x-frame-options"]).toBe("DENY");
+  expect(headers["strict-transport-security"]).toContain("max-age=31536000");
+
+  const blocked = await request.post("/api/auth/logout", {
+    headers: { Origin: "https://attacker.invalid", "Sec-Fetch-Site": "cross-site", "Content-Type": "application/json" },
+    data: {}
+  });
+  expect(blocked.status()).toBe(403);
 });
