@@ -1,13 +1,7 @@
-name: Apply SPORE BET D1 migrations
+name: Apply SPORE BET D1 migrations (manual recovery)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "migrations/**"
-      - ".github/workflows/apply-d1-migrations.yml"
 
 permissions:
   contents: read
@@ -17,16 +11,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  migrate:
-    name: Apply remote D1 migrations
+  apply:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Apply D1 migrations
-        uses: cloudflare/wrangler-action@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: d1 migrations apply spore-bet-db --remote
+          node-version: 22
+      - name: Install Wrangler
+        run: npm install --global wrangler@4
+      - name: Apply remote D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler d1 migrations apply spore-bet-db --remote --config wrangler.toml
