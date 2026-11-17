@@ -24,10 +24,12 @@ test("health endpoint reports healthy demo-only mode", async ({ request }) => {
 });
 
 test("administrator page loads but protected overview rejects anonymous access", async ({ page, request }) => {
-  const response = await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: /SPORE BET.*Admin/i })).toBeVisible();
   const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
+  const adminRoute = await api.get("/admin");
+  expect(adminRoute.status()).toBe(200);
   const protectedResponse = await api.get("/api/admin/overview");
   expect(protectedResponse.status()).toBe(401);
   await api.dispose();
