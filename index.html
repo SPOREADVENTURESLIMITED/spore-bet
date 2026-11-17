@@ -25,6 +25,18 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:11px 14px
 .pick{font-size:13px;border-bottom:1px solid var(--line);padding:10px 0}.pick small{display:block;color:var(--muted)}.field{width:100%;padding:12px;border-radius:9px;border:1px solid var(--line);background:#081c16;color:var(--white);margin:8px 0 12px}.calc{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;margin:8px 0}.calc strong{color:var(--white)}.full{width:100%;margin-top:10px}
 footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:12px}.credit{position:fixed;bottom:12px;left:12px;background:#0b211aee;border:1px solid var(--line);border-radius:999px;padding:7px 11px;color:#b8cbbf;font-size:10px;z-index:8}
 @media(max-width:800px){.hero{grid-template-columns:1fr}.layout{grid-template-columns:1fr}.slip{position:static}.top{height:auto;min-height:68px;flex-wrap:wrap;padding:10px 0}.actions .pill{display:none}}
+@media(max-width:800px){
+html,body{max-width:100%;overflow-x:clip}
+.wrap{width:100%;min-width:0}
+.top>div:first-child{min-width:0;flex:1 1 170px}
+.actions{min-width:0;max-width:100%;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end}
+.actions button{max-width:100%}
+.hero>*,.account,.layout,.layout>*{min-width:0}
+.authgrid{grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))}
+.matchTop,.teams{min-width:0;flex-wrap:wrap}
+.markets{grid-template-columns:repeat(3,minmax(0,1fr))}
+.odd{min-width:0}
+}
 </style></head>
 <body>
 <header><div class="wrap top"><div><div class="brand">SPORE<span>BET</span></div><div class="tag">SPORTS • SMARTER PLAY</div></div><div class="actions"><span class="pill">VIRTUAL MODE</span><span class="pill wallet">Demo: <b id="balance">100,000</b> cr</span><button class="ghost small" id="reset">Reset demo</button></div></div></header>

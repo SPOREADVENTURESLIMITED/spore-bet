@@ -55,6 +55,7 @@ Cloudflare D1: spore-bet-db
 - `GET /api/sports`, `GET /api/events`, `GET /api/markets` — public demo catalogue.
 - `GET /api/bets`, `POST /api/bets` — authenticated demo bet history and placement.
 - `GET /api/admin/overview` — admin-only, MFA-verified dashboard data.
+- `POST /api/admin/sessions/revoke-all` — MFA-verified revocation of all administrator sessions, including the invoking session.
 - `POST /api/admin/mfa/setup`, `POST /api/admin/mfa/verify` — administrator TOTP enrollment.
 
 All cash wagering, deposits, withdrawals, payouts and cash wallet operations remain disabled.
@@ -63,7 +64,7 @@ All cash wagering, deposits, withdrawals, payouts and cash wallet operations rem
 
 - New public registrations receive the `customer` role; role is never accepted from public registration input.\n- The first administrator can be created only once through `/api/admin/bootstrap`, requiring `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_TOKEN` and an unused D1 `admin_bootstrap` guard. The token is one-time and should be removed from Cloudflare after activation.
 - Accounts must be active to establish an authenticated session.
-- Session cookies are Secure, HttpOnly and SameSite=Lax. Only a SHA-256 token hash is stored in D1. Mutating API requests reject mismatched Origin and cross-site Fetch Metadata. Logout reports success only after a session revocation attempt succeeds. Sessions have a seven-day absolute lifetime and can be revoked; a separate idle timeout and administrator-wide session revocation workflow are not yet implemented.
+- Session cookies are Secure, HttpOnly and SameSite=Lax. Only a SHA-256 token hash is stored in D1. Mutating API requests reject mismatched Origin and cross-site Fetch Metadata. Logout reports success only after a session revocation attempt succeeds. Sessions have a seven-day absolute lifetime and a 30-minute server-enforced idle timeout. Authenticated activity refreshes `last_seen_at`; sessions idle beyond 30 minutes are rejected. The MFA-protected administrator-wide revocation endpoint revokes every active administrator session and clears the invoking cookie.
 - Sessions expire after seven days and are revocable.
 - Administrator endpoints require an active account with `role='admin'`.
 - Admin dashboard data additionally requires a session with `admin_mfa_verified=1`.
@@ -116,6 +117,6 @@ Do not enable real-money mode by changing a UI flag. A regulated-money architect
 
 ## 9. Current verification boundary
 
-The live site and health endpoint were reachable during the latest inspection. The health endpoint reported `status=ok`, `mode=demo-only`, `realMoneyEnabled=false`, and `databaseConfigured=true`. An unauthenticated request to `/api/admin/overview` returned HTTP 401, as expected. D1 inspection confirmed migrations 0001–0006 applied, no rows from `PRAGMA foreign_key_check`, no duplicate bet idempotency groups, and matching stored demo-wallet balance and net ledger balance. SQLite `PRAGMA integrity_check` was not available through the authorized D1 query interface, so a full engine-level integrity check remains unverified.
+The live site and health endpoint were reachable during the latest inspection. The health endpoint reported `status=ok`, `mode=demo-only`, `realMoneyEnabled=false`, and `databaseConfigured=true`. An unauthenticated request to `/api/admin/overview` returned HTTP 401, as expected. D1 inspection confirmed migrations 0001–0006 applied in the current production deployment; migration 0007 is proposed in PR #5 and is not active until merged and deployed, no rows from `PRAGMA foreign_key_check`, no duplicate bet idempotency groups, and matching stored demo-wallet balance and net ledger balance. D1 `PRAGMA quick_check` returned `ok`, and `PRAGMA foreign_key_check` returned no rows. The scheduled GitHub Actions backup verification exported production D1, restored the SQL dump into an isolated SQLite database, passed full `PRAGMA integrity_check` (`ok`) and `PRAGMA foreign_key_check` (no rows), verified demo-only mode flags, and reconciled wallet balances to the ledger. A temporary isolated D1 restore was also completed successfully: 88 SQL queries restored 15 tables, D1 quick_check and foreign_key_check passed, demo-only settings and wallet-ledger reconciliation passed, and the temporary database was deleted. Measured full-service RPO/RTO remain unverified.
 
 These checks do not substitute for a signed-in administrator test, full browser regression, external security assessment, legal approval or payment-provider certification.

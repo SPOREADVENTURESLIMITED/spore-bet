@@ -8,6 +8,7 @@
 <details class="card" style="margin-top:14px"><summary style="cursor:pointer;color:var(--green);font-weight:700">First administrator activation · one-time setup</summary><p class="sub">For the designated organization administrator only. Requires the one-time Cloudflare setup token. This setup closes permanently after the first administrator is created.</p><input id="bootstrapName" autocomplete="name" placeholder="Administrator full name"><input id="bootstrapEmail" type="email" autocomplete="username" value="sporeafrica@gmail.com" placeholder="Authorized administrator email"><input id="bootstrapPhone" type="tel" autocomplete="tel" placeholder="Phone (optional, +international format)"><input id="bootstrapPassword" type="password" autocomplete="new-password" placeholder="Create password (12–128 characters)"><input id="bootstrapToken" type="password" autocomplete="off" placeholder="One-time Cloudflare setup token"><button id="bootstrapAdmin">Activate first administrator</button><p id="bootstrapStatus" class="sub" aria-live="polite"></p></details>
 <section id="mfa" class="card" hidden><h2>Administrator authenticator setup</h2><p class="sub">Install an authenticator app, add this account using the secret below, then enter the current six-digit code. Keep the secret private.</p><button id="beginMfa">Generate setup secret</button><div id="secretWrap" hidden><p>Manual setup secret</p><code id="secret"></code><p class="sub">Authenticator URI (use the manual secret if QR scanning is unavailable).</p><code id="uri"></code><input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Six-digit authenticator code"><button id="verifyMfa">Verify and enable MFA</button></div><p id="mfaStatus" class="sub"></p></section>
 <section id="dashboard" hidden><section class="grid"><article class="card"><div class="sub">Registered users</div><div class="metric" id="users">—</div></article><article class="card"><div class="sub">Active users</div><div class="metric" id="active">—</div></article><article class="card"><div class="sub">Recorded bets</div><div class="metric" id="bets">—</div></article><article class="card"><div class="sub">Demo credits outstanding</div><div class="metric" id="credits">—</div></article></section>
+<section class="card" style="margin-top:14px"><h2>Administrator session security</h2><p class="sub">Revoke every active administrator session across the platform. This includes your current session and signs all administrators out. Customer sessions are not affected.</p><button id="revokeAdminSessions" type="button">Revoke all administrator sessions</button><p id="sessionSecurityStatus" class="sub" aria-live="polite"></p></section>
 <section class="card"><h2>Recent audit activity</h2><div class="table"><table><thead><tr><th>Time</th><th>Action</th><th>Entity</th><th>Reference</th></tr></thead><tbody id="activity"><tr><td colspan="4">Loading…</td></tr></tbody></table></div><p class="sub" id="status">Administrator session verified.</p></section></section>
 <p id="pageStatus" class="sub">Checking administrator session…</p></main>
 <script>
@@ -62,6 +63,20 @@ document.getElementById("adminLogin").onclick=async()=>{
   if(d.user?.role!=="admin"){await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"});throw new Error("This account is not authorized for administrator access.");}
   status.textContent=d.message||"Signed in.";
   await loadDashboard();
+ }catch(e){status.textContent=e.message;}
+};
+document.getElementById("revokeAdminSessions").onclick=async()=>{
+ const status=document.getElementById("sessionSecurityStatus");
+ if(!confirm("Revoke every active administrator session, including this session? All administrators will need to sign in again."))return;
+ status.textContent="Revoking administrator sessions…";
+ try{
+  const r=await fetch("/api/admin/sessions/revoke-all",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:"{}"});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error||"Session revocation failed.");
+  dashboard.hidden=true;loginCard.hidden=false;mfa.hidden=true;
+  document.getElementById("adminPassword").value="";
+  document.getElementById("adminOtp").value="";
+  pageStatus.textContent=d.message||"Administrator sessions revoked. Sign in again.";
  }catch(e){status.textContent=e.message;}
 };
 loadDashboard();

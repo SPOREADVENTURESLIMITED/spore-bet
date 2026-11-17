@@ -70,7 +70,7 @@ export async function verifyTotp(secret,code,now=Date.now()) {
 }
 export async function createSession(db,userId) {
   const tokenBytes=crypto.getRandomValues(new Uint8Array(32)),token=toBase64Url(tokenBytes),tokenHash=await sha256(token);
-  await db.prepare("INSERT INTO sessions (id,user_id,token_hash,expires_at) VALUES (?, ?, ?, datetime('now', '+7 days'))").bind(crypto.randomUUID(),userId,tokenHash).run();
+  await db.prepare("INSERT INTO sessions (id,user_id,token_hash,expires_at,last_seen_at) VALUES (?, ?, ?, datetime('now', '+7 days'), datetime('now'))").bind(crypto.randomUUID(),userId,tokenHash).run();
   return token;
 }
 export function sessionCookie(token) { return `spore_session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_DAYS*86400}`; }
@@ -78,11 +78,16 @@ export const clearSessionCookie="spore_session=; HttpOnly; Secure; SameSite=Lax;
 export async function currentUser(request,db) {
   const token=readCookie(request,"spore_session");if(!token||token.length>128)return null;
   const tokenHash=await sha256(token);
-  return await db.prepare(
+  const user=await db.prepare(
     `SELECT u.id,u.email,u.phone,u.display_name AS displayName,u.role,u.status,u.totp_enabled AS totpEnabled,
             s.admin_mfa_verified AS adminMfaVerified,w.id AS walletId,w.balance_minor AS balanceMinor,w.currency
      FROM sessions s JOIN users u ON u.id=s.user_id
      LEFT JOIN wallets w ON w.user_id=u.id AND w.wallet_type='demo'
-     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>datetime('now') AND u.status='active' LIMIT 1`
+     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>datetime('now')
+       AND s.last_seen_at>datetime('now','-30 minutes') AND u.status='active' LIMIT 1`
   ).bind(tokenHash).first();
+  if (user) {
+    await db.prepare("UPDATE sessions SET last_seen_at=datetime('now') WHERE token_hash=? AND revoked_at IS NULL").bind(tokenHash).run();
+  }
+  return user;
 }

@@ -1,0 +1,37 @@
+name: SPORE BET browser regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Install desktop and mobile browser engines
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run production browser regression matrix
+        env:
+          API_BASE_URL: https://spore-bet.pages.dev
+          CI: true
+        run: npm run test:browser
+      - name: Upload browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spore-bet-playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
