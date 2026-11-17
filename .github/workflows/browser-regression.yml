@@ -24,7 +24,7 @@ jobs:
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Run production browser regression matrix
         env:
-          BASE_URL: https://spore-bet.pages.dev
+          API_BASE_URL: https://spore-bet.pages.dev
           CI: true
         run: npm run test:browser
       - name: Upload browser report
