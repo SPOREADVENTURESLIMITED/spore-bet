@@ -77,7 +77,7 @@ jobs:
             exit 1
           fi
 
-          ledger_mismatches="$(sqlite3 "$RESTORE_DB" "SELECT COUNT(*) FROM wallets w WHERE w.balance_minor != COALESCE((SELECT SUM(CASE WHEN l.direction='credit' THEN l.amount_minor ELSE -l.amount_minor END) FROM wallet_ledger l WHERE l.wallet_id=w.id),0);")"
+          ledger_mismatches="$(sqlite3 "$RESTORE_DB" "SELECT COUNT(*) AS mismatches FROM wallets w WHERE w.balance_minor != COALESCE((SELECT SUM(CASE WHEN l.direction='credit' THEN l.amount_minor ELSE -l.amount_minor END) FROM wallet_ledger l WHERE l.wallet_id=w.id),0);")"
           if [ "$ledger_mismatches" != "0" ]; then
             echo "Restored wallet and ledger balances do not reconcile."
             exit 1
@@ -108,16 +108,16 @@ jobs:
           }
 
           restored_quick="$(d1_query "PRAGMA quick_check;")"
-          printf '%s' "$restored_quick" | jq -e '.success == true and .result[0].results.rows[0][0] == "ok"' >/dev/null
+          printf '%s' "$restored_quick" | jq -e '.success == true and .result[0].results[0].quick_check == "ok"' >/dev/null
 
           restored_fk="$(d1_query "PRAGMA foreign_key_check;")"
-          printf '%s' "$restored_fk" | jq -e '.success == true and ([.result[].results.rows[]?] | length == 0)' >/dev/null
+          printf '%s' "$restored_fk" | jq -e '.success == true and (.result[0].results | length == 0)' >/dev/null
 
-          restored_mode="$(d1_query "SELECT MAX(CASE WHEN setting_key='real_money_enabled' THEN setting_value END), MAX(CASE WHEN setting_key='demo_mode_enabled' THEN setting_value END) FROM app_settings;")"
-          printf '%s' "$restored_mode" | jq -e '.success == true and .result[0].results.rows[0][0] == "false" and .result[0].results.rows[0][1] == "true"' >/dev/null
+          restored_mode="$(d1_query "SELECT setting_value AS real_money FROM app_settings WHERE setting_key='real_money_enabled' UNION ALL SELECT setting_value AS demo_mode FROM app_settings WHERE setting_key='demo_mode_enabled';")"
+          printf '%s' "$restored_mode" | jq -e '.success == true and .result[0].results[0].real_money == "false" and .result[0].results[1].demo_mode == "true"' >/dev/null
 
           restored_ledger="$(d1_query "SELECT COUNT(*) FROM wallets w WHERE w.balance_minor != COALESCE((SELECT SUM(CASE WHEN l.direction='credit' THEN l.amount_minor ELSE -l.amount_minor END) FROM wallet_ledger l WHERE l.wallet_id=w.id),0);")"
-          printf '%s' "$restored_ledger" | jq -e '.success == true and .result[0].results.rows[0][0] == 0' >/dev/null
+          printf '%s' "$restored_ledger" | jq -e '.success == true and .result[0].results[0].mismatches == 0' >/dev/null
 
           curl --silent --show-error --fail -X DELETE "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$TEMP_DB_ID" \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" >/dev/null
