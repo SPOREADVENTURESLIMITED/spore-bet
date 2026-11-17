@@ -5,6 +5,7 @@
 </style></head><body><main class="wrap"><header><div><h1>SPORE BET · Admin</h1><div class="sub">Restricted administrator dashboard · MFA protected</div></div><a href="/">← Back to sportsbook</a></header>
 <div class="notice">Demo environment only. Real-money wagering, deposits, withdrawals and payouts are disabled.</div>
 <section id="loginCard" class="card" hidden><h2>Administrator sign in</h2><p class="sub">Use your authorized administrator email or international phone number and password. If MFA is enabled, enter the current six-digit authenticator code.</p><input id="adminIdentifier" autocomplete="username" placeholder="Administrator email or +international phone"><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Password"><input id="adminOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Authenticator code (if enabled)"><button id="adminLogin">Sign in securely</button><p id="loginStatus" class="sub"></p></section>
+<details class="card" style="margin-top:14px"><summary style="cursor:pointer;color:var(--green);font-weight:700">First administrator activation · one-time setup</summary><p class="sub">For the designated organization administrator only. Requires the one-time Cloudflare setup token. This setup closes permanently after the first administrator is created.</p><input id="bootstrapName" autocomplete="name" placeholder="Administrator full name"><input id="bootstrapEmail" type="email" autocomplete="username" value="sporeafrica@gmail.com" placeholder="Authorized administrator email"><input id="bootstrapPhone" type="tel" autocomplete="tel" placeholder="Phone (optional, +international format)"><input id="bootstrapPassword" type="password" autocomplete="new-password" placeholder="Create password (12–128 characters)"><input id="bootstrapToken" type="password" autocomplete="off" placeholder="One-time Cloudflare setup token"><button id="bootstrapAdmin">Activate first administrator</button><p id="bootstrapStatus" class="sub" aria-live="polite"></p></details>
 <section id="mfa" class="card" hidden><h2>Administrator authenticator setup</h2><p class="sub">Install an authenticator app, add this account using the secret below, then enter the current six-digit code. Keep the secret private.</p><button id="beginMfa">Generate setup secret</button><div id="secretWrap" hidden><p>Manual setup secret</p><code id="secret"></code><p class="sub">Authenticator URI (use the manual secret if QR scanning is unavailable).</p><code id="uri"></code><input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Six-digit authenticator code"><button id="verifyMfa">Verify and enable MFA</button></div><p id="mfaStatus" class="sub"></p></section>
 <section id="dashboard" hidden><section class="grid"><article class="card"><div class="sub">Registered users</div><div class="metric" id="users">—</div></article><article class="card"><div class="sub">Active users</div><div class="metric" id="active">—</div></article><article class="card"><div class="sub">Recorded bets</div><div class="metric" id="bets">—</div></article><article class="card"><div class="sub">Demo credits outstanding</div><div class="metric" id="credits">—</div></article></section>
 <section class="card"><h2>Recent audit activity</h2><div class="table"><table><thead><tr><th>Time</th><th>Action</th><th>Entity</th><th>Reference</th></tr></thead><tbody id="activity"><tr><td colspan="4">Loading…</td></tr></tbody></table></div><p class="sub" id="status">Administrator session verified.</p></section></section>
@@ -22,6 +23,26 @@ async function loadDashboard(){
   else for(const item of d.recentActivity){const tr=document.createElement("tr");for(const value of [item.created_at,item.action,item.entity_type||"—",item.entity_id||"—"]){const td=document.createElement("td");td.textContent=value;tr.appendChild(td);}body.appendChild(tr);}
  }catch(e){pageStatus.className="sub error";pageStatus.textContent=e.message+" — sign in with an authorized admin account.";}
 }
+document.getElementById("bootstrapAdmin").onclick=async()=>{
+ const status=document.getElementById("bootstrapStatus");
+ const payload={
+  displayName:document.getElementById("bootstrapName").value.trim(),
+  email:document.getElementById("bootstrapEmail").value.trim(),
+  phone:document.getElementById("bootstrapPhone").value.trim(),
+  password:document.getElementById("bootstrapPassword").value,
+  bootstrapToken:document.getElementById("bootstrapToken").value
+ };
+ status.textContent="Activating the first administrator securely…";
+ try{
+  const r=await fetch("/api/admin/bootstrap",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error||"Administrator activation failed.");
+  document.getElementById("bootstrapPassword").value="";
+  document.getElementById("bootstrapToken").value="";
+  status.textContent=d.message||"Administrator created. Continue with MFA enrollment.";
+  await loadDashboard();
+ }catch(e){status.textContent=e.message;}
+};
 document.getElementById("beginMfa").onclick=async()=>{
  const status=document.getElementById("mfaStatus");status.textContent="Generating protected setup secret…";
  try{const r=await fetch("/api/admin/mfa/setup",{method:"POST",credentials:"same-origin"}),d=await r.json();if(!r.ok)throw new Error(d.error);document.getElementById("secret").textContent=d.secret;document.getElementById("uri").textContent=d.otpauthUrl;document.getElementById("secretWrap").hidden=false;status.textContent=d.message;}

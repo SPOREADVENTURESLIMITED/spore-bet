@@ -48,7 +48,7 @@ Cloudflare D1: spore-bet-db
 ## 3. API surface
 
 - `GET /api/health` — service mode and database binding presence.
-- `POST /api/auth/register` — customer registration and demo wallet initialization.
+- `POST /api/auth/register` — customer registration and demo wallet initialization; always assigns the customer role.\n- `POST /api/admin/bootstrap` — one-time first-admin activation gated by a Cloudflare secret, exact allowlisted email, rate limit and D1 one-time guard.
 - `POST /api/auth/login` — credential verification, rate limiting, session issue and admin MFA.
 - `POST /api/auth/logout` — session revocation.
 - `GET /api/auth/me` — current authenticated account.
@@ -61,7 +61,7 @@ All cash wagering, deposits, withdrawals, payouts and cash wallet operations rem
 
 ## 4. Identity and authorization model
 
-- New public registrations receive the `customer` role; role is never accepted from public registration input.
+- New public registrations receive the `customer` role; role is never accepted from public registration input.\n- The first administrator can be created only once through `/api/admin/bootstrap`, requiring `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_TOKEN` and an unused D1 `admin_bootstrap` guard. The token is one-time and should be removed from Cloudflare after activation.
 - Accounts must be active to establish an authenticated session.
 - Session cookies are Secure, HttpOnly and SameSite=Lax. Only a SHA-256 token hash is stored in D1.
 - Sessions expire after seven days and are revocable.
