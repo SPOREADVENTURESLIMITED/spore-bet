@@ -7,7 +7,7 @@ This runbook intentionally leaves organization-specific and regulated-business d
 In Cloudflare Pages → `spore-bet` → Settings → Variables and Secrets, verify the production secret:
 
 - `MFA_ENCRYPTION_KEY`: secret text, at least 32 characters of high-entropy random material. Store the recovery copy in the organization's approved secrets vault. Do not put it in GitHub, D1, logs or chat.
-- `ADMIN_BOOTSTRAP_TOKEN`: secret text, at least 32 characters of high-entropy random material. Generate it with a password manager or cryptographically secure generator; never reuse it or put it in GitHub, D1, logs or chat. It is consumed by the first successful administrator activation.
+- `ADMIN_BOOTSTRAP_TOKEN`: the one-time token was consumed and removed from production after first-admin activation. Recreate it only for an approved bootstrap recovery; never keep it permanently or put it in GitHub, D1, logs or chat.
 - `ADMIN_BOOTSTRAP_EMAIL`: plain-text Pages environment variable set to the exact designated first-administrator email (for this setup: `sporeafrica@gmail.com`).
 
 The repository's deployment workflow also requires GitHub Actions secrets maintained by the repository owner:
@@ -82,7 +82,7 @@ Keep SPORE BET in demo-only mode until every required legal, licensing, payment,
 ## G. Session inactivity and emergency administrator sign-out
 
 - Every authenticated request updates the session's `last_seen_at` timestamp.
-- Sessions idle for more than 30 minutes are rejected; the absolute seven-day expiry remains in force.
+- Sessions idle for more than 30 minutes are rejected; the absolute seven-day expiry remains in force. Migration 0007 was applied to production on 17 November 2026; sessions created before the migration with activity older than 30 minutes require a fresh login.
 - The dashboard includes **Revoke all administrator sessions**. This action requires an active MFA-verified administrator, revokes all administrator sessions across the organization (including the invoking session), writes an audit event, and clears the current session cookie.
 - Use this control after suspected administrator credential exposure, lost devices, or a planned organization-wide sign-out. All administrators must sign in again and complete MFA.
 - Customer sessions are not affected by this administrator-only operation.
@@ -97,7 +97,16 @@ Keep SPORE BET in demo-only mode until every required legal, licensing, payment,
 
 ## I. Automated backup restore verification
 
-- The GitHub Actions workflow `SPORE BET backup restore and SQLite integrity check` runs weekly on Monday at 02:17 UTC, on migration/workflow changes, and by manual dispatch.
+- The GitHub Actions workflow `SPORE BET backup restore and SQLite integrity check` runs after successful production Pages deployments, weekly on Monday at 02:17 UTC, and by manual dispatch.
 - It exports production D1, restores the SQL into isolated SQLite, runs full `PRAGMA integrity_check` and `PRAGMA foreign_key_check`, creates a temporary D1 database, imports the export there, verifies D1 quick-check/foreign keys, demo-only flags and wallet-to-ledger reconciliation, then deletes the temporary D1 and all export files.
-- Latest completed run: 17 November 2026 — successful; full SQLite integrity check returned `ok`, the temporary D1 import completed 88 queries across 15 tables, D1 checks and demo-only/ledger invariants passed, and cleanup succeeded.
+- Latest completed run: 17 November 2026 — successful after migration 0007; full SQLite integrity check returned `ok`, the temporary D1 import completed 90 queries across 15 tables, D1 checks and demo-only/ledger invariants passed, and cleanup succeeded.
 - This verifies export restoration into SQLite and D1. It does not retain an off-site backup archive or measure full-service RPO/RTO. D1 Time Travel is available for point-in-time recovery; maintain a separately retained encrypted backup if recovery beyond Cloudflare's Time Travel retention is required.
+
+
+## J. Deployment and post-deployment checks
+
+- The normal production Pages deployment workflow applies pending D1 migrations before publishing the application. Migration 0007 is applied in production.
+- The separate **Apply SPORE BET D1 migrations (manual recovery)** workflow is manual-only; do not run it concurrently with a production deployment.
+- After a successful deployment, the backup restore workflow exports production D1, restores into isolated SQLite and temporary D1, validates integrity and key invariants, and deletes temporary restore data. The post-deploy smoke test runs after that restore workflow succeeds.
+- The post-deploy smoke checks the homepage, `/admin`, `/api/health`, demo-only flags, anonymous administrator denial, unauthenticated session-revocation denial, security headers and cross-origin request protection.
+- Automated browser regression passed on Chromium, Firefox, WebKit, Pixel 7 emulation and iPhone 13 emulation. These are emulated browser profiles, not physical-device certification.

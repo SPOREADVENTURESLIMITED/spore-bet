@@ -8,7 +8,7 @@
 
 The application remains **demo-only**. No real-money wagering, deposits, withdrawals, payouts, or payment-provider integrations are enabled. No destructive production test was performed.
 
-The review identified two session-lifecycle gaps: there was no inactivity timeout and no single action to revoke all administrator sessions. Fixes are proposed in PR #5. A first mobile browser run exposed horizontal overflow; the responsive CSS fix was merged from PR #6 and the repeat browser matrix passed. They add a 30-minute idle timeout, retain the seven-day absolute expiry, and provide an MFA-protected organization-wide administrator-session revocation action. The invoking session is also revoked and customer sessions are unaffected.
+The review identified two session-lifecycle gaps: there was no inactivity timeout and no single action to revoke all administrator sessions. Both fixes were merged in PR #5 and deployed to production on 17 November 2026. The mobile overflow found in the first browser run was fixed in PR #6 and the repeat browser matrix passed. Production now enforces a 30-minute idle timeout with a seven-day absolute expiry and provides an MFA-protected organization-wide administrator-session revocation action. The invoking session is revoked and customer sessions are unaffected.
 
 ## Scope reviewed
 
@@ -24,14 +24,14 @@ The review identified two session-lifecycle gaps: there was no inactivity timeou
 | Area | Result | Evidence / limitation |
 |---|---|---|
 | Administrator authorization | Existing admin overview is role- and MFA-gated | Prior production check: anonymous request returned 401; admin account and MFA were previously verified. |
-| Session security | Improvement prepared | PR #5 adds 30-minute idle expiry and all-admin revocation; migration 0007 initializes activity timestamps. Not active in production until PR merge and deployment. |
+| Session security | Implemented and deployed | Migration 0007 is applied in production; 30-minute idle expiry, seven-day absolute expiry and MFA-protected all-admin revocation are live. Existing idle sessions older than 30 minutes require re-authentication. |
 | API safeguards | Source reviewed; automated regression added | Existing middleware rejects cross-origin state-changing requests and applies security headers. Playwright and post-deploy smoke checks verify headers, cross-site logout rejection, anonymous admin denial and unauthenticated administrator-revocation denial. |
-| SQL handling | Source reviewed | Parameterized D1 statements are used in the reviewed authentication and betting paths. |
+| SQL handling | Source reviewed | Parameterized D1 statements are used in the reviewed authentication and betting paths. |\n| Static analysis | Passed | GitHub CodeQL analysis completed successfully on the production release commit. |
 | Browser regression | Passed | Playwright passed on Chromium, Firefox, WebKit, Pixel 7 emulation and iPhone 13 emulation, including mobile overflow, admin access denial, demo-only preview and security-header/CSRF checks. |
 | Database quick integrity | Passed | D1 PRAGMA quick_check returned ok; PRAGMA foreign_key_check returned no rows. |
 | Full SQLite integrity | Passed on exported restore | GitHub Actions exported production D1, restored the SQL dump into a clean local SQLite database, ran PRAGMA integrity_check = ok and foreign_key_check with no violations. The temporary export and restored database were deleted from the ephemeral runner. |
-| D1 export | Export operation completed | Cloudflare export endpoint reported status=complete; signed SQL artifact was not retrievable from the isolated execution environment. |
-| Point-in-time recovery | Availability confirmed | Database reports version=production; current and prior Time Travel bookmarks were retrievable. No restore was run because Time Travel restore overwrites the target database in place and D1 does not currently provide a safe clone/fork for this test. |
+| D1 export and restore | Passed | Scheduled GitHub Actions exported production D1, restored the dump into isolated SQLite and a temporary D1 database, verified migration 0007, and deleted the temporary database and export files. |
+| Point-in-time recovery | Availability confirmed | Database reports version=production; current and prior Time Travel bookmarks were retrievable. No in-place Time Travel rollback was performed against production. The separate SQL export restore into temporary D1 passed. |
 | Restore rehearsal / RPO / RTO | SQLite and temporary D1 restore passed; full-service RPO/RTO remain open | The SQL export restored into isolated SQLite and a temporary D1 database. Full SQLite integrity_check returned ok; D1 quick_check and foreign_key_check passed; demo-only flags and wallet/ledger reconciliation passed; the temporary D1 and export files were deleted. RPO/RTO for restoring the whole service, DNS and application deployment remain unmeasured. |
 | Independent penetration test | Not completed | Requires an independent security tester with an agreed scope and report. This review must not be represented as third-party certification. |
 
@@ -41,13 +41,13 @@ The review identified two session-lifecycle gaps: there was no inactivity timeou
 **Status:** Remediation proposed in PR #5.  
 **Impact:** A valid session could remain usable until its absolute expiry or manual revocation, even after a long idle period.  
 **Fix:** Add last_seen_at, initialize it at session creation, update it on authenticated activity, and reject sessions idle for more than 30 minutes. The seven-day absolute lifetime remains.  
-**Verification:** Test active session refresh, rejection after 30 minutes, rejection after absolute expiry, and no refresh for revoked sessions.
+**Verification:** Session unit tests passed; production migration 0007 is applied; production session inspection found no missing activity timestamps. Existing sessions older than the idle window were rejected.
 
 ### SEC-02 — No administrator-wide session revocation
 **Status:** Remediation proposed in PR #5.  
 **Impact:** Incident response required individual session revocation or manual database operations.  
 **Fix:** Add an MFA-protected endpoint and dashboard control to revoke every active administrator session, including the caller, with an audit event. Customer sessions are not changed.  
-**Verification:** Confirm non-admin and non-MFA callers are rejected; all admin sessions are revoked atomically; customer sessions remain active; audit event is written.
+**Verification:** Unit tests passed for customer denial, missing-MFA denial and successful atomic D1 revocation/audit batch. Production smoke confirmed unauthenticated revocation is rejected. The live revoke-all control has not been invoked, to avoid signing out all administrators without an incident-response need.
 
 ### SEC-03 — Full service recovery objectives not yet measured
 **Status:** Data restore verification passed; RPO/RTO measurement remains open.  
@@ -69,4 +69,4 @@ The review identified two session-lifecycle gaps: there was no inactivity timeou
 
 ## Release gate
 
-Do not deploy PR #5 until both GitHub Actions validation and browser regression workflows pass. After merge, confirm migration 0007 is applied before the Pages Functions deployment, then verify /api/health, anonymous admin denial, MFA admin access, idle expiry, and organization-wide session revocation using an approved administrator test window.
+PR #5 is merged and deployed. Migration 0007 is applied; GitHub validation, CodeQL, the Playwright browser matrix, the database restore rehearsal and post-deploy production smoke all passed. Remaining pre-real-money gates are an independent third-party penetration test, a full-service RPO/RTO exercise, legal/licensing approval and all payment/identity/responsible-gambling controls.
