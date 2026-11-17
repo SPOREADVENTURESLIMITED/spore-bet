@@ -58,3 +58,16 @@ test("security headers and cross-site state-change guard are present", async ({ 
   expect(blocked.status()).toBe(403);
   await api.dispose();
 });
+
+test("demo bet slip selection, return calculation and clearing work", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.locator(".odd").first().click();
+  await expect(page.locator("#pickCount")).toHaveText("1");
+  await expect(page.locator("#picks")).toContainText("Kampala City vs Nairobi United");
+  await expect(page.locator("#combined")).toHaveText("1.82");
+  await expect(page.locator("#returns")).toHaveText("1,820 cr");
+  await page.locator('[data-remove="0"]').click();
+  await expect(page.locator("#pickCount")).toHaveText("0");
+  await page.locator('[data-sport="Basketball"]').click();
+  await expect(page.locator("#fixtureList")).toContainText("Kampala Hoops");
+});
