@@ -116,6 +116,6 @@ Do not enable real-money mode by changing a UI flag. A regulated-money architect
 
 ## 9. Current verification boundary
 
-The live site and health endpoint were reachable during the latest inspection. The health endpoint reported `status=ok`, `mode=demo-only`, `realMoneyEnabled=false`, and `databaseConfigured=true`. An unauthenticated request to `/api/admin/overview` returned HTTP 401, as expected. D1 inspection showed migrations 0001–0005 applied.
+The live site and health endpoint were reachable during the latest inspection. The health endpoint reported `status=ok`, `mode=demo-only`, `realMoneyEnabled=false`, and `databaseConfigured=true`. An unauthenticated request to `/api/admin/overview` returned HTTP 401, as expected. D1 inspection confirmed migrations 0001–0006 applied, no rows from `PRAGMA foreign_key_check`, no duplicate bet idempotency groups, and matching stored demo-wallet balance and net ledger balance. SQLite `PRAGMA integrity_check` was not available through the authorized D1 query interface, so a full engine-level integrity check remains unverified.
 
 These checks do not substitute for a signed-in administrator test, full browser regression, external security assessment, legal approval or payment-provider certification.
