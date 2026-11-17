@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test": "node --test tests/*.test.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"
