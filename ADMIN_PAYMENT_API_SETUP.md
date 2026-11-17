@@ -40,3 +40,20 @@ The account number, branch and SWIFT remain editable payment destination setting
 - `POST /api/bets` with `walletType: "cash"` — cash-wallet bet placement; controlled by `app_settings.real_money_enabled`.
 
 Provider credentials must be provisioned by each merchant/provider and configured in Cloudflare. Transaction approvals and wallet ledger entries are recorded in D1; never mark a deposit approved until receipt is confirmed, or a withdrawal paid until payout is sent.
+
+
+## Live football data feed
+
+SPORE BET now has a server-side Sportmonks Football API v3 connector at `GET /api/live/football`.
+
+The administrator must add this Cloudflare Pages secret:
+
+- `SPORTMONKS_API_TOKEN` — Sportmonks Football API v3 token.
+
+Add it in Cloudflare Dashboard → Workers & Pages → `spore-bet` → Settings → Variables and Secrets → Add → Secret. Redeploy Pages after saving the secret.
+
+Endpoints:
+- `/api/live/football?view=live` — in-play fixtures, scores, events, league and available odds.
+- `/api/live/football?view=upcoming` — fixtures in the next seven days, with available odds.
+
+The token is only used server-side and is never returned to the browser. Fixture and odds coverage depends on the Sportmonks subscription. The connector does not fabricate odds or mark a match as wagerable when the provider has not supplied a market.
