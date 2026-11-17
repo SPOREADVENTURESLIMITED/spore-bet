@@ -1,11 +1,13 @@
-import { currentUser,json,readCookie,sha256,decryptTotpSecret,verifyTotp } from "../../_auth.js";
+import { currentUser,json,readCookie,sha256,decryptTotpSecret,verifyTotp,consumeRateLimit } from "../../_auth.js";
 export async function onRequestPost({request,env}) {
   if(!env.DB)return json({error:"Database is not configured."},503);
+  if(!(request.headers.get("Content-Type")||"").toLowerCase().includes("application/json"))return json({error:"Send verification details as JSON."},415);
   let body;try{body=await request.json();}catch{return json({error:"Invalid request body."},400);}
   try {
     const user=await currentUser(request,env.DB);
     if(!user)return json({error:"Authentication required."},401);
     if(user.role!=="admin")return json({error:"Administrator access required."},403);
+    if(!await consumeRateLimit(env.DB,request,"admin-mfa-verify",user.id,8,900))return json({error:"Too many authenticator attempts. Wait 15 minutes and try again."},429);
     if(user.totpEnabled)return json({error:"MFA is already enabled."},409);
     const row=await env.DB.prepare("SELECT totp_secret_encrypted FROM users WHERE id=?").bind(user.id).first();
     if(!row?.totp_secret_encrypted)return json({error:"Start MFA setup first."},400);
