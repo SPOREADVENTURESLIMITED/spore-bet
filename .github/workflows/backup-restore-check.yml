@@ -2,11 +2,9 @@ name: SPORE BET backup restore and SQLite integrity check
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/backup-restore-check.yml"
-      - "migrations/**"
+  workflow_run:
+    workflows: ["Deploy SPORE BET to Cloudflare Pages"]
+    types: [completed]
   schedule:
     - cron: "17 2 * * 1"
 
@@ -19,6 +17,7 @@ concurrency:
 
 jobs:
   export-restore-integrity:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -110,6 +109,12 @@ jobs:
           restored_quick="$(d1_query "PRAGMA quick_check;")"
           printf '%s' "$restored_quick" | jq -e '.success == true and .result[0].results[0].quick_check == "ok"' >/dev/null
 
+          restored_migration="$(d1_query "SELECT COUNT(*) AS applied FROM d1_migrations WHERE name='0007_session_idle_timeout.sql';")"
+          printf '%s' "$restored_migration" | jq -e '.success == true and .result[0].results[0].applied == 1' >/dev/null
+
+          restored_session_column="$(d1_query "PRAGMA table_info(sessions);")"
+          printf '%s' "$restored_session_column" | jq -e '.success == true and ([.result[0].results[]? | .name] | index("last_seen_at") != null)' >/dev/null
+
           restored_fk="$(d1_query "PRAGMA foreign_key_check;")"
           printf '%s' "$restored_fk" | jq -e '.success == true and (.result[0].results | length == 0)' >/dev/null
 
@@ -125,6 +130,7 @@ jobs:
 
           echo "PASS: production D1 export restored into isolated SQLite and temporary D1."
           echo "PASS: full SQLite integrity_check = ok."
+          echo "PASS: restored D1 migration 0007 and last_seen_at column verified."
           echo "PASS: restored D1 quick_check and foreign_key_check passed."
           echo "PASS: restored D1 demo-only mode and wallet-ledger reconciliation verified."
           echo "PASS: temporary D1 and all export files deleted."
