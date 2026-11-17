@@ -23,6 +23,11 @@ self.addEventListener("fetch", event => {
   if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
+    // Only the actual app shell may populate the offline homepage fallback.
+    if (url.pathname !== "/" && url.pathname !== "/index.html") {
+      event.respondWith(fetch(request));
+      return;
+    }
     event.respondWith(fetch(request).then(response => {
       if (response.ok) {
         const copy = response.clone();
