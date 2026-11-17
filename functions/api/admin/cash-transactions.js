@@ -27,8 +27,8 @@ export async function onRequestPost({request,env}) {
     const refund=tx.transaction_type==="withdrawal";
     const stmts=[
      env.DB.prepare("UPDATE cash_transactions SET status='rejected',admin_note=?,reviewed_by=?,reviewed_at=datetime('now'),updated_at=datetime('now') WHERE id=? AND status='pending'").bind(typeof note==="string"?note.slice(0,500):null,admin.id,tx.id),
-     ...(refund?[env.DB.prepare("UPDATE wallets SET balance_minor=balance_minor+? WHERE id=? AND EXISTS(SELECT 1 FROM cash_transactions WHERE id=? AND status='rejected')").bind(tx.amount_minor,tx.wallet_id,tx.id),
-     env.DB.prepare("INSERT INTO wallet_ledger(id,wallet_id,entry_type,amount_minor,direction,reference,description) VALUES(?,?,'withdrawal_release',?,'credit',?,'Rejected withdrawal reserve released')").bind(crypto.randomUUID(),tx.wallet_id,tx.amount_minor,"withdrawal-release:"+tx.id)]:[]),
+     ...(refund?[env.DB.prepare("UPDATE wallets SET balance_minor=balance_minor+? WHERE id=? AND changes()=1").bind(tx.amount_minor,tx.wallet_id,tx.id),
+     env.DB.prepare("INSERT INTO wallet_ledger(id,wallet_id,entry_type,amount_minor,direction,reference,description) SELECT ?,?,'withdrawal_release',?,'credit',?,'Rejected withdrawal reserve released' WHERE changes()=1").bind(crypto.randomUUID(),tx.wallet_id,tx.amount_minor,"withdrawal-release:"+tx.id)]:[]),
      env.DB.prepare("INSERT INTO audit_logs(id,actor_user_id,action,entity_type,entity_id,metadata_json) VALUES(?,?,'cash_transaction_rejected','cash_transaction',?,?)").bind(crypto.randomUUID(),admin.id,tx.id,JSON.stringify({type:tx.transaction_type,amount:tx.amount_minor}))
     ];
     await env.DB.batch(stmts);
@@ -37,8 +37,8 @@ export async function onRequestPost({request,env}) {
   if(tx.transaction_type==="deposit"&&decision==="approve"){
    await env.DB.batch([
     env.DB.prepare("UPDATE cash_transactions SET status='approved',admin_note=?,reviewed_by=?,reviewed_at=datetime('now'),updated_at=datetime('now') WHERE id=? AND status='pending'").bind(typeof note==="string"?note.slice(0,500):null,admin.id,tx.id),
-    env.DB.prepare("UPDATE wallets SET balance_minor=balance_minor+? WHERE id=? AND EXISTS(SELECT 1 FROM cash_transactions WHERE id=? AND status='approved')").bind(tx.amount_minor,tx.wallet_id,tx.id),
-    env.DB.prepare("INSERT INTO wallet_ledger(id,wallet_id,entry_type,amount_minor,direction,reference,description) VALUES(?,?,'deposit',?,'credit',?,'Administrator-approved deposit')").bind(crypto.randomUUID(),tx.wallet_id,tx.amount_minor,"deposit:"+tx.id),
+    env.DB.prepare("UPDATE wallets SET balance_minor=balance_minor+? WHERE id=? AND changes()=1").bind(tx.amount_minor,tx.wallet_id,tx.id),
+    env.DB.prepare("INSERT INTO wallet_ledger(id,wallet_id,entry_type,amount_minor,direction,reference,description) SELECT ?,?,'deposit',?,'credit',?,'Administrator-approved deposit' WHERE changes()=1").bind(crypto.randomUUID(),tx.wallet_id,tx.amount_minor,"deposit:"+tx.id),
     env.DB.prepare("INSERT INTO audit_logs(id,actor_user_id,action,entity_type,entity_id,metadata_json) VALUES(?,?,'cash_deposit_approved','cash_transaction',?,?)").bind(crypto.randomUUID(),admin.id,tx.id,JSON.stringify({amount:tx.amount_minor}))
    ]);
    return json({message:"Deposit approved and cash wallet credited.",id:tx.id,status:"approved"});
