@@ -8,6 +8,7 @@
 <details class="card" style="margin-top:14px"><summary style="cursor:pointer;color:var(--green);font-weight:700">First administrator activation · one-time setup</summary><p class="sub">For the designated organization administrator only. Requires the one-time Cloudflare setup token. This setup closes permanently after the first administrator is created.</p><input id="bootstrapName" autocomplete="name" placeholder="Administrator full name"><input id="bootstrapEmail" type="email" autocomplete="username" value="sporeafrica@gmail.com" placeholder="Authorized administrator email"><input id="bootstrapPhone" type="tel" autocomplete="tel" placeholder="Phone (optional, +international format)"><input id="bootstrapPassword" type="password" autocomplete="new-password" placeholder="Create password (12–128 characters)"><input id="bootstrapToken" type="password" autocomplete="off" placeholder="One-time Cloudflare setup token"><button id="bootstrapAdmin">Activate first administrator</button><p id="bootstrapStatus" class="sub" aria-live="polite"></p></details>
 <section id="mfa" class="card" hidden><h2>Administrator authenticator setup</h2><p class="sub">Install an authenticator app, add this account using the secret below, then enter the current six-digit code. Keep the secret private.</p><button id="beginMfa">Generate setup secret</button><div id="secretWrap" hidden><p>Manual setup secret</p><code id="secret"></code><p class="sub">Authenticator URI (use the manual secret if QR scanning is unavailable).</p><code id="uri"></code><input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Six-digit authenticator code"><button id="verifyMfa">Verify and enable MFA</button></div><p id="mfaStatus" class="sub"></p></section>
 <section id="dashboard" hidden><section class="grid"><article class="card"><div class="sub">Registered users</div><div class="metric" id="users">—</div></article><article class="card"><div class="sub">Active users</div><div class="metric" id="active">—</div></article><article class="card"><div class="sub">Recorded bets</div><div class="metric" id="bets">—</div></article><article class="card"><div class="sub">Demo credits outstanding</div><div class="metric" id="credits">—</div></article></section>
+<section class="card" style="margin-top:14px"><h2>Payment destination settings</h2><p class="sub">Edit the merchant identifiers and bank transfer details displayed in the payment preview. Changes are saved to D1 and recorded in the audit log. These details do not activate payment processing.</p><div class="grid" style="margin:12px 0"><label>Airtel merchant<input id="payAirtel" autocomplete="off" maxlength="32"></label><label>MTN merchant<input id="payMtn" autocomplete="off" maxlength="32"></label><label>Bank name<input id="payBank" autocomplete="off" maxlength="80"></label><label>Account number<input id="payAccount" autocomplete="off" maxlength="40"></label><label>Branch<input id="payBranch" autocomplete="off" maxlength="80"></label><label>SWIFT code<input id="paySwift" autocomplete="off" maxlength="16"></label></div><button id="loadPaymentSettings" type="button">Reload saved details</button> <button id="savePaymentSettings" type="button">Save payment details</button><p id="paymentSettingsStatus" class="sub" aria-live="polite"></p></section>
 <section class="card" style="margin-top:14px"><h2>Administrator session security</h2><p class="sub">Revoke every active administrator session across the platform. This includes your current session and signs all administrators out. Customer sessions are not affected.</p><button id="revokeAdminSessions" type="button">Revoke all administrator sessions</button><p id="sessionSecurityStatus" class="sub" aria-live="polite"></p></section>
 <section class="card"><h2>Recent audit activity</h2><div class="table"><table><thead><tr><th>Time</th><th>Action</th><th>Entity</th><th>Reference</th></tr></thead><tbody id="activity"><tr><td colspan="4">Loading…</td></tr></tbody></table></div><p class="sub" id="status">Administrator session verified.</p></section></section>
 <p id="pageStatus" class="sub">Checking administrator session…</p></main>
@@ -17,7 +18,7 @@ async function loadDashboard(){
  try{
   const r=await fetch("/api/admin/overview",{credentials:"same-origin",cache:"no-store"}),d=await r.json();
   if(!r.ok){if(d.code==="MFA_SETUP_REQUIRED"){loginCard.hidden=true;mfa.hidden=false;pageStatus.textContent="MFA enrollment is required before administrator access.";return;}if(r.status===401||d.code==="MFA_REQUIRED"){loginCard.hidden=false;mfa.hidden=true;pageStatus.textContent="";return;}throw new Error(d.error||"Access denied");}
-  loginCard.hidden=true;mfa.hidden=true;dashboard.hidden=false;pageStatus.textContent="";
+  loginCard.hidden=true;mfa.hidden=true;dashboard.hidden=false;pageStatus.textContent="";loadPaymentSettings();
   document.getElementById("users").textContent=d.summary.registeredUsers.toLocaleString();document.getElementById("active").textContent=d.summary.activeUsers.toLocaleString();document.getElementById("bets").textContent=d.summary.recordedBets.toLocaleString();document.getElementById("credits").textContent=d.summary.demoCreditsOutstanding.toLocaleString();
   const body=document.getElementById("activity");body.textContent="";
   if(!d.recentActivity.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=4;td.textContent="No activity recorded yet.";tr.appendChild(td);body.appendChild(tr);}
@@ -41,7 +42,20 @@ document.getElementById("bootstrapAdmin").onclick=async()=>{
   document.getElementById("bootstrapPassword").value="";
   document.getElementById("bootstrapToken").value="";
   status.textContent=d.message||"Administrator created. Continue with MFA enrollment.";
-  await loadDashboard();
+  await async function loadPaymentSettings(){
+ const status=document.getElementById("paymentSettingsStatus");status.textContent="Loading payment details…";
+ try{const r=await fetch("/api/admin/payment-settings",{credentials:"same-origin",cache:"no-store"}),d=await r.json();if(!r.ok)throw new Error(d.error||"Could not load settings.");
+ const s=d.settings;document.getElementById("payAirtel").value=s.airtelMerchant;document.getElementById("payMtn").value=s.mtnMerchant;document.getElementById("payBank").value=s.bankName;document.getElementById("payAccount").value=s.accountNumber;document.getElementById("payBranch").value=s.branch;document.getElementById("paySwift").value=s.swift;status.textContent="Saved details loaded. Last updated: "+s.updatedAt;
+ }catch(e){status.textContent=e.message;}
+}
+document.getElementById("loadPaymentSettings").onclick=loadPaymentSettings;
+document.getElementById("savePaymentSettings").onclick=async()=>{
+ const status=document.getElementById("paymentSettingsStatus");status.textContent="Saving payment details…";
+ const payload={airtelMerchant:document.getElementById("payAirtel").value,mtnMerchant:document.getElementById("payMtn").value,bankName:document.getElementById("payBank").value,accountNumber:document.getElementById("payAccount").value,branch:document.getElementById("payBranch").value,swift:document.getElementById("paySwift").value};
+ try{const r=await fetch("/api/admin/payment-settings",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok)throw new Error(d.error||"Could not save settings.");status.textContent=d.message+" Updated: "+d.settings.updatedAt;}
+ catch(e){status.textContent=e.message;}
+};
+loadDashboard();
  }catch(e){status.textContent=e.message;}
 };
 document.getElementById("beginMfa").onclick=async()=>{
