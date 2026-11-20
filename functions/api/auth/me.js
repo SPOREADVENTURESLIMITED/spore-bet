@@ -7,9 +7,11 @@ export async function onRequestGet({ request, env }) {
     if (!user) return json({ error: "Authentication required." }, 401);
     return json({
       user: { id: user.id, email: user.email, phone: user.phone, displayName: user.displayName, role: user.role },
-      wallet: { type: "demo", currency: user.currency || "DCR", balance: user.balanceMinor || 0 },
-      mode: "demo-only",
-      realMoneyEnabled: false
+      wallet: null,
+      wageringAvailable: false,
+      depositsAvailable: false,
+      withdrawalsAvailable: false,
+      mode: "real-money-not-launched"
     });
   } catch {
     return json({ error: "Account information is temporarily unavailable." }, 503);
