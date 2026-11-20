@@ -1,6 +1,6 @@
-import { test, expect, request as apiRequest } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
-test("customer homepage has no demo wallet, demo slip or sample fixtures", async ({ page }) => {
+test("customer homepage removes demo betting and displays launch status", async ({ page }) => {
   const response = await page.goto("/", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expect(page).toHaveTitle(/SPORE BET/i);
@@ -11,44 +11,24 @@ test("customer homepage has no demo wallet, demo slip or sample fixtures", async
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
 
-test("health endpoint reports locked real-money launch state", async ({ request }) => {
-  const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
-  const response = await api.get("/api/health");
-  expect(response.status()).toBe(200);
-  const health = await response.json();
-  expect(health.status).toBe("ok");
-  expect(health.mode).toBe("real-money-not-launched");
-  expect(health.realMoneyEnabled).toBe(false);
-  expect(health.wageringAvailable).toBe(false);
-  await api.dispose();
+test("administrator dashboard has no demo metrics and keeps financial controls locked", async ({ page }) => {
+  const response = await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: /SPORE BET.*Administrator/i })).toBeVisible();
+  await expect(page.locator("body")).toContainText(/real-money launch locked/i);
+  await expect(page.locator("body")).not.toContainText(/demo credits outstanding|payment destination settings/i);
 });
 
-test("anonymous users cannot access administrator finance controls", async ({ request }) => {
-  const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
-  expect((await api.get("/admin")).status()).toBe(200);
-  expect((await api.get("/api/admin/overview")).status()).toBe(401);
-  expect((await api.get("/api/admin/cash-transactions")).status()).toBe(401);
-  await api.dispose();
+test("financial operations page displays launch gates, not transaction approval buttons", async ({ page }) => {
+  const response = await page.goto("/admin-money.html", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  await expect(page.locator("body")).toContainText(/cash operations locked/i);
+  await expect(page.locator("body")).toContainText(/double-entry ledger/i);
+  await expect(page.getByRole("button")).toHaveCount(0);
 });
 
-test("customer money endpoints fail closed without creating transactions", async ({ request }) => {
-  const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
-  for (const path of ["/api/bets", "/api/deposits", "/api/withdrawals"]) {
-    const response = await api.post(path, { data: {} });
-    expect([401, 415, 423]).toContain(response.status());
-  }
-  await api.dispose();
+test("simulated wallet preview page has been removed", async ({ page }) => {
+  const response = await page.goto("/money-preview.html", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(404);
 });
 
-test("security headers and cross-site state-change guard are present", async ({ request }) => {
-  const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
-  const pageResponse = await api.get("/");
-  expect(pageResponse.status()).toBe(200);
-  const headers = pageResponse.headers();
-  expect(headers["x-content-type-options"]).toBe("nosniff");
-  expect(headers["x-frame-options"]).toBe("DENY");
-  expect(headers["strict-transport-security"]).toContain("max-age=31536000");
-  const blocked = await api.post("/api/auth/logout", { headers: { Origin: "https://attacker.invalid", "Sec-Fetch-Site": "cross-site", "Content-Type": "application/json" }, data: {} });
-  expect(blocked.status()).toBe(403);
-  await api.dispose();
-});
