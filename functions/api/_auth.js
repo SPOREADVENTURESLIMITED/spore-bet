@@ -80,9 +80,8 @@ export async function currentUser(request,db) {
   const tokenHash=await sha256(token);
   const user=await db.prepare(
     `SELECT u.id,u.email,u.phone,u.display_name AS displayName,u.role,u.status,u.totp_enabled AS totpEnabled,
-            s.admin_mfa_verified AS adminMfaVerified,w.id AS walletId,w.balance_minor AS balanceMinor,w.currency
+            s.admin_mfa_verified AS adminMfaVerified
      FROM sessions s JOIN users u ON u.id=s.user_id
-     LEFT JOIN wallets w ON w.user_id=u.id AND w.wallet_type='demo'
      WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>datetime('now')
        AND s.last_seen_at>datetime('now','-30 minutes') AND u.status='active' LIMIT 1`
   ).bind(tokenHash).first();
