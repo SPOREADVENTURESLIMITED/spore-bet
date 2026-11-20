@@ -1,45 +1,43 @@
 import { test, expect, request as apiRequest } from "@playwright/test";
 
-test("public sportsbook shell loads without horizontal overflow", async ({ page }) => {
+test("customer homepage has no demo wallet, demo slip or sample fixtures", async ({ page }) => {
   const response = await page.goto("/", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expect(page).toHaveTitle(/SPORE BET/i);
-  await expect(page.locator("body")).toContainText(/demo sportsbook|demo environment|sportsbook/i);
-  const dimensions = await page.evaluate(() => ({
-    viewport: document.documentElement.clientWidth,
-    content: document.documentElement.scrollWidth
-  }));
+  await expect(page.locator("body")).toContainText(/real-money service not yet available/i);
+  await expect(page.locator("body")).toContainText(/no demo balances/i);
+  await expect(page.locator("body")).not.toContainText(/demo credits|virtual bet slip|illustrative odds/i);
+  const dimensions = await page.evaluate(() => ({ viewport: document.documentElement.clientWidth, content: document.documentElement.scrollWidth }));
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
 
-test("health endpoint reports healthy demo-only mode", async ({ request }) => {
+test("health endpoint reports locked real-money launch state", async ({ request }) => {
   const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
   const response = await api.get("/api/health");
   expect(response.status()).toBe(200);
   const health = await response.json();
   expect(health.status).toBe("ok");
-  expect(health.mode).toBe("demo-only");
+  expect(health.mode).toBe("real-money-not-launched");
   expect(health.realMoneyEnabled).toBe(false);
+  expect(health.wageringAvailable).toBe(false);
   await api.dispose();
 });
 
-test("administrator page loads but protected overview rejects anonymous access", async ({ page, request }) => {
-  const response = await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
-  expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: /SPORE BET.*Admin/i })).toBeVisible();
+test("anonymous users cannot access administrator finance controls", async ({ request }) => {
   const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
-  const adminRoute = await api.get("/admin");
-  expect(adminRoute.status()).toBe(200);
-  const protectedResponse = await api.get("/api/admin/overview");
-  expect(protectedResponse.status()).toBe(401);
+  expect((await api.get("/admin")).status()).toBe(200);
+  expect((await api.get("/api/admin/overview")).status()).toBe(401);
+  expect((await api.get("/api/admin/cash-transactions")).status()).toBe(401);
   await api.dispose();
 });
 
-test("money interface is explicitly preview-only and does not enable payment", async ({ page }) => {
-  const response = await page.goto("/money-preview.html", { waitUntil: "domcontentloaded" });
-  expect(response?.status()).toBe(200);
-  await expect(page.locator("body")).toContainText(/preview only|preview-only/i);
-  await expect(page.locator("body")).toContainText(/deposits, withdrawals, payouts and real-money wagering remain disabled/i);
+test("customer money endpoints fail closed without creating transactions", async ({ request }) => {
+  const api = await apiRequest.newContext({ baseURL: process.env.API_BASE_URL || "https://spore-bet.pages.dev" });
+  for (const path of ["/api/bets", "/api/deposits", "/api/withdrawals"]) {
+    const response = await api.post(path, { data: {} });
+    expect([401, 415, 423]).toContain(response.status());
+  }
+  await api.dispose();
 });
 
 test("security headers and cross-site state-change guard are present", async ({ request }) => {
@@ -50,24 +48,7 @@ test("security headers and cross-site state-change guard are present", async ({ 
   expect(headers["x-content-type-options"]).toBe("nosniff");
   expect(headers["x-frame-options"]).toBe("DENY");
   expect(headers["strict-transport-security"]).toContain("max-age=31536000");
-
-  const blocked = await api.post("/api/auth/logout", {
-    headers: { Origin: "https://attacker.invalid", "Sec-Fetch-Site": "cross-site", "Content-Type": "application/json" },
-    data: {}
-  });
+  const blocked = await api.post("/api/auth/logout", { headers: { Origin: "https://attacker.invalid", "Sec-Fetch-Site": "cross-site", "Content-Type": "application/json" }, data: {} });
   expect(blocked.status()).toBe(403);
   await api.dispose();
-});
-
-test("demo bet slip selection, return calculation and clearing work", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.locator(".odd").first().click();
-  await expect(page.locator("#pickCount")).toHaveText("1");
-  await expect(page.locator("#picks")).toContainText("Kampala City vs Nairobi United");
-  await expect(page.locator("#combined")).toHaveText("1.82");
-  await expect(page.locator("#returns")).toHaveText("1,820 cr");
-  await page.locator('[data-remove="0"]').click();
-  await expect(page.locator("#pickCount")).toHaveText("0");
-  await page.locator('[data-sport="Basketball"]').click();
-  await expect(page.locator("#fixtureList")).toContainText("Kampala Hoops");
 });
